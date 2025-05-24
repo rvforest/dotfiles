@@ -1,0 +1,58 @@
+export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
+
+# Path to your Oh My Zsh installation.
+export ZSH="$HOME/.oh-my-zsh"
+
+ZSH_THEME="powerlevel10k/powerlevel10k"
+
+zstyle ':omz:update' mode auto      # update automatically without asking
+
+zstyle ':omz:update' frequency 13
+
+ENABLE_CORRECTION="true"
+
+# You can also set it to another string to have that shown instead of the default red dots.
+# e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
+COMPLETION_WAITING_DOTS="true"
+
+# Uncomment the following line if you want to disable marking untracked files
+# under VCS as dirty. This makes repository status check for large repositories
+# much, much faster.
+# DISABLE_UNTRACKED_FILES_DIRTY="true"
+
+
+
+# Which plugins would you like to load?
+# Standard plugins can be found in $ZSH/plugins/
+# Custom plugins may be added to $ZSH_CUSTOM/plugins/
+# Example format: plugins=(rails git textmate ruby lighthouse)
+# Add wisely, as too many plugins slow down shell startup.
+plugins=(git zsh-bat you-should-use aliases zsh-autosuggestions zsh-syntax-highlighting)
+
+source $ZSH/oh-my-zsh.sh
+
+# User configuration
+
+# export MANPATH="/usr/local/man:$MANPATH"
+
+# You may need to manually set your language environment
+# export LANG=en_US.UTF-8
+
+export EDITOR='nvim'
+
+
+# ALIASES
+alias vim=nvim
+alias ls=eza
+alias ipython='uv run --with IPython ipython'
+alias zr='zellij run'
+alias ze='zellij edit'
+alias l='ls -lAh --no-user'  # to save space
+alias uvr='uv run'
+
+#if [[ ! -v $ZELLIJ ]]; then
+#    zellij -l welcome
+#fi
+
+export PATH=~/.pyenv/bin:$PATH
+#eval "$(pyenv virtualenv-init -)"
