@@ -79,6 +79,8 @@ git config --global interactive.diffFilter 'delta --color-only'
 git config --global delta.navigate true
 git config --global merge.conflictStyle zdiff3
 
+# you should use
+git clone https://github.com/MichaelAquilina/zsh-you-should-use.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/you-should-use
 
 # zellij
 echo "installing zellij..."
@@ -87,7 +89,7 @@ tar xvf zellij-aarch64-unknown-linux-musl.tar.gz
 mv zellij ~/.local/bin
 rm zellij-aarch64-unknown-linux-musl.tar.gz 
 
-# misc tools
+# misc python tools
 uv tool install tldr
 uv tool install httpie
 
