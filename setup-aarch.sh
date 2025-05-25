@@ -5,6 +5,9 @@ sudo apt-get update -y
 
 # git
 echo "installing git..."
+sudo apt install -y software-properties-common
+sudo apt-add-repository -y ppa:git-core/ppa
+sudo apt-get update
 sudo apt-get install -y git
 
 # neovim
