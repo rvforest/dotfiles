@@ -73,10 +73,10 @@ echo "installing gh..."
 
 # delta
 echo "installing delta..."
-wget https://github.com/dandavison/delta/releases/download/0.18.2/delta-0.18.2-aarch64-apple-darwin.tar.gz
-tar xvf delta-0.18.2-aarch64-apple-darwin.tar.gz
-mv delta-0.18.2-aarch64-apple-darwin ~/.local/bin
-rm -r delta-0.18.2-aarch64-apple-darwin.tar.gz 
+wget https://github.com/dandavison/delta/releases/download/0.18.2/delta-0.18.2-aarch64-unknown-linux-gnu.tar.gz
+tar xvf delta-0.18.2-aarch64-unknown-linux-gnu.tar.gz
+mv delta-0.18.2-aarch64-unknown-linux-gnu/delta ~/.local/bin
+
 git config --global core.pager delta
 git config --global interactive.diffFilter 'delta --color-only'
 git config --global delta.navigate true
