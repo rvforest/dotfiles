@@ -9,6 +9,12 @@ sudo apt install -y software-properties-common
 sudo apt-add-repository -y ppa:git-core/ppa
 sudo apt-get update
 sudo apt-get install -y git
+git config --global user.name 'Robert Forest'
+git config --global user.email rvforest@gmail.com
+git config --global core.editor vim
+git config --global push.autoSetupRemote true
+git config --global init.defaultBranch main
+git config --global pull.rebase true
 
 # neovim
 echo "installing neovim..."
