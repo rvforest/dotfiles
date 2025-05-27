@@ -56,6 +56,8 @@ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:
 # uv
 echo "installing uv..."
 curl -LsSf https://astral.sh/uv/install.sh | sh
+echo 'eval "$(uv generate-shell-completion zsh)"' >> ~/.zshrc
+echo 'eval "$(uvx --generate-shell-completion zsh)"' >> ~/.zshrc
 
 # gpg
 echo "installing gpg..."
