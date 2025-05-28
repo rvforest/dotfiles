@@ -1,11 +1,12 @@
 set -euo pipefail
 
-echo "apt update..."
+echo "system..."
 sudo apt-get update -y
+sudo apt install -y build-essential
+sudo apt install -y software-properties-common
 
 # git
 echo "installing git..."
-sudo apt install -y software-properties-common
 sudo apt-add-repository -y ppa:git-core/ppa
 sudo apt-get update
 sudo apt-get install -y git
