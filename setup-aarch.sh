@@ -10,6 +10,12 @@ echo "installing git..."
 sudo apt-add-repository -y ppa:git-core/ppa
 sudo apt-get update
 sudo apt-get install -y git
+
+LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
+curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+tar xf lazygit.tar.gz lazygit
+sudo install lazygit -D -t /usr/local/bin/
+
 git config --global user.name 'Robert Forest'
 git config --global user.email rvforest@gmail.com
 git config --global core.editor vim
@@ -52,7 +58,6 @@ sudo apt-get install -y fd-find
 echo "installing rg..."
 sudo apt-get install -y ripgrep
 
-
 # zsh-syntaxhighlighting
 echo "installing zsh-syntax-highlighting..."
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting || true
@@ -73,15 +78,14 @@ sudo apt-get install -y eza
 
 # gh
 echo "installing gh..."
-(type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
-	&& sudo mkdir -p -m 755 /etc/apt/keyrings \
-        && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-        && cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
-	&& sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-	&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-	&& sudo apt update \
-	&& sudo apt install gh -y
-
+(type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) &&
+    sudo mkdir -p -m 755 /etc/apt/keyrings &&
+    out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg &&
+    cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null &&
+    sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg &&
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null &&
+    sudo apt update &&
+    sudo apt install gh -y
 
 # delta
 echo "installing delta..."
@@ -100,9 +104,9 @@ git clone https://github.com/MichaelAquilina/zsh-you-should-use.git ${ZSH_CUSTOM
 # zellij
 echo "installing zellij..."
 wget https://github.com/zellij-org/zellij/releases/download/v0.42.2/zellij-aarch64-unknown-linux-musl.tar.gz
-tar xvf zellij-aarch64-unknown-linux-musl.tar.gz 
+tar xvf zellij-aarch64-unknown-linux-musl.tar.gz
 mv zellij ~/.local/bin
-rm zellij-aarch64-unknown-linux-musl.tar.gz 
+rm zellij-aarch64-unknown-linux-musl.tar.gz
 
 # misc python tools
 uv tool install tldr
