@@ -1,3 +1,27 @@
+export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
+export PATH="$PATH:/opt/nvim-linux-arm64/bin"
+
+zellij_session=default
+new-zellij ()
+{
+  zellij options \
+    --no-pane-frames \
+    --default-layout disable-status-bar \
+    --session-name $zellij_session
+}
+
+if [[ -z "$ZELLIJ" ]]; then
+  echo hello
+  if zellij ls | grep -v EXITED | grep default; then
+    echo "Attaching to existing session..."
+    zellij attach $zellij_session
+  else
+    echo "Starting new sessjon..."
+    zellij delete-session $zellij_session || true
+    new-zellij
+  fi
+fi
+
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
@@ -5,7 +29,6 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
-export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
 
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
