@@ -80,6 +80,11 @@ alias ze='zellij edit'
 alias l='ls -lAh --no-user'  # to save space
 alias uvr='uv run'
 
+# git
+alias wip='git stash --include-untracked > /dev/null && gcb "wip/$(git branch --show-current)" || gco "wip/$(git branch --show-current)" && git stash pop > /dev/null && gwip'
+alias unwip='gunwip && gco "${$(git branch --show-current)#*wip/}" && git branch -D "wip/$(git branch --show-current)"'
+
+
 #if [[ ! -v $ZELLIJ ]]; then
 #    zellij -l welcome
 #fi
