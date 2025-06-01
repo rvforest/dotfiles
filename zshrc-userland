@@ -72,6 +72,12 @@ export EDITOR='nvim'
 
 
 # ALIASES
+function vim() {
+  uv run nvim "$@"
+}
+alias ls=eza
+
+alias lt='ls --tree'
 alias vim=nvim
 alias ls=eza
 alias ipython='uv run --with IPython ipython'
