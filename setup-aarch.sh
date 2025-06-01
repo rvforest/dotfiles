@@ -28,7 +28,7 @@ echo "installing neovim..."
 curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-arm64.tar.gz
 sudo rm -rf /opt/nvim
 sudo tar -C /opt -xzf nvim-linux-arm64tar.gz
-echo 'export PATH="$PATH:/opt/nvim-linux-arm64/bin"' >> ~/.zshrc
+echo 'export PATH="$PATH:/opt/nvim-linux-arm64/bin"' >>~/.zshrc
 
 # zsh
 echo "installing zsh..."
@@ -65,8 +65,8 @@ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:
 # uv
 echo "installing uv..."
 curl -LsSf https://astral.sh/uv/install.sh | sh
-echo 'eval "$(uv generate-shell-completion zsh)"' >> ~/.zshrc
-echo 'eval "$(uvx --generate-shell-completion zsh)"' >> ~/.zshrc
+echo 'eval "$(uv generate-shell-completion zsh)"' >>~/.zshrc
+echo 'eval "$(uvx --generate-shell-completion zsh)"' >>~/.zshrc
 
 # gpg
 echo "installing gpg..."
@@ -112,8 +112,6 @@ rm zellij-aarch64-unknown-linux-musl.tar.gz
 uv tool install tldr
 uv tool install httpie
 
-# sudo apt-get install -y
-
-# git
-git config --global user.email rvforest@gmail.com
-git config --global user.name "Robert Forest"
+# zoxide
+curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+echo 'eval "$(zoxide init zsh)"' >>~/.zshrc
