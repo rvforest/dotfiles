@@ -4,6 +4,9 @@ echo "system..."
 sudo apt-get update -y
 sudo apt install -y build-essential
 sudo apt install -y software-properties-common
+sudo apt install -y python3-venv
+sudo apt install -y npm
+sudo apt install -y unzip
 
 # git
 echo "installing git..."
