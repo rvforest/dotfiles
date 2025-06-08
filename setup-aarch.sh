@@ -18,11 +18,26 @@ sudo apt-add-repository -y ppa:git-core/ppa
 sudo apt-get update
 sudo apt-get install -y git
 
+echo "Creating git signing key"
+keyname="git_signing"
+ssh-keygen -f "${HOME}/.ssh/${keyname}"
+# Add to ssh-agent
+eval "$(ssh-agent -s)"
+ssh-add "$keyname"
+# echo 'eval "$(ssh-agent -s)"' >> ~/.zshrc
+
+# Always sign commits
+git config --global gpg.format ssh
+git config --global user.signingkey "$HOME/.ssh/${keyname}.pub"
+git config --global commit.gpgsign true
+
+# Lazygit
 LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
 curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
 tar xf lazygit.tar.gz lazygit
 sudo install lazygit -D -t /usr/local/bin/
 
+# Configure git
 git config --global user.name 'Robert Forest'
 git config --global user.email rvforest@gmail.com
 git config --global core.editor vim
@@ -35,7 +50,7 @@ echo "installing neovim..."
 curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-arm64.tar.gz
 sudo rm -rf /opt/nvim
 sudo tar -C /opt -xzf nvim-linux-arm64tar.gz
-echo 'export PATH="$PATH:/opt/nvim-linux-arm64/bin"' >>~/.zshrc
+# echo 'export PATH="$PATH:/opt/nvim-linux-arm64/bin"' >>~/.zshrc
 
 # zsh
 echo "installing zsh..."
@@ -72,8 +87,8 @@ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:
 # uv
 echo "installing uv..."
 curl -LsSf https://astral.sh/uv/install.sh | sh
-echo 'eval "$(uv generate-shell-completion zsh)"' >>~/.zshrc
-echo 'eval "$(uvx --generate-shell-completion zsh)"' >>~/.zshrc
+# echo 'eval "$(uv generate-shell-completion zsh)"' >>~/.zshrc
+# echo 'eval "$(uvx --generate-shell-completion zsh)"' >>~/.zshrc
 
 # gpg
 echo "installing gpg..."
@@ -121,4 +136,4 @@ uv tool install httpie
 
 # zoxide
 curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
-echo 'eval "$(zoxide init zsh)"' >>~/.zshrc
+# echo 'eval "$(zoxide init zsh)"' >>~/.zshrc
