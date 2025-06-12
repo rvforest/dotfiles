@@ -6,6 +6,7 @@ sudo apt install -y build-essential
 sudo apt install -y software-properties-common
 sudo apt install -y python3-venv
 sudo apt install -y unzip
+sudo apt install -y keyring
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
