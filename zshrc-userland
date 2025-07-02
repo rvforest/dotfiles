@@ -91,6 +91,7 @@ alias l='ls -lAh --no-user'  # to save space
 alias uvr='uv run'
 alias v=vim
 alias bat=batcat
+alias fd=fdfind
 
 # git
 alias wip='git stash --include-untracked > /dev/null && gcb "wip/$(git branch --show-current)" || gco "wip/$(git branch --show-current)" && git stash pop > /dev/null && gwip'
