@@ -138,3 +138,6 @@ uv tool install httpie
 # zoxide
 curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
 # echo 'eval "$(zoxide init zsh)"' >>~/.zshrc
+
+# direnv
+sudo apt-get install -y direnv
