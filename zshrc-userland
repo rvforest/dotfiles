@@ -108,3 +108,7 @@ export NVM_DIR="$HOME/.nvm"
 
 eval "$(zoxide init zsh)"
 
+
+. "$HOME/.atuin/bin/env"
+
+eval "$(atuin init zsh)"
