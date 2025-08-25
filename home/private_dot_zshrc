@@ -57,7 +57,7 @@ zstyle ':omz:update' frequency 13
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
 # plugins=(git you-should-use aliases zsh-syntax-highlighting)
-plugins=(git zsh-syntax-highlighting direnv)
+plugins=(git zsh-syntax-highlighting)
 
 source $ZSH/oh-my-zsh.sh
 
