@@ -1,0 +1,20 @@
+# 20-zellij.zsh — zellij session logic
+zellij_session=$(hostname)
+
+new-zellij () {
+  zellij options \
+    --no-pane-frames \
+    --default-layout disable-status-bar \
+    --session-name $zellij_session
+}
+
+if [[ -z "$ZELLIJ" ]]; then
+  if zellij ls | grep -v EXITED | grep $zellij_session; then
+    echo "Attaching to existing session..."
+    zellij attach $zellij_session
+  else
+    echo "Starting new session..."
+    zellij delete-session $zellij_session || true
+    new-zellij
+  fi
+fi

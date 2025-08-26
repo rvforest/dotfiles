@@ -1,0 +1,4 @@
+# 00-env.zsh — general environment variables (non-PATH)
+
+export EDITOR='nvim'
+export LANG=en_US.UTF-8

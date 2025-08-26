@@ -1,113 +1,20 @@
-export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
-export PATH="$PATH:/opt/nvim-linux-arm64/bin"
+# ~/.zshrc — loader for split config files
+ZDOTDIR=${ZDOTDIR:-$HOME}
+ZSH_CONFIG_DIR="${ZDOTDIR}/.config/zsh"
 
-zellij_session=pixel
-new-zellij ()
-{
-  zellij options \
-    --no-pane-frames \
-    --default-layout disable-status-bar \
-    --session-name $zellij_session
-}
+if [[ ! -d $ZSH_CONFIG_DIR ]]; then ZSH_CONFIG_DIR="$ZDOTDIR"; fi
 
-if [[ -z "$ZELLIJ" ]]; then
-  if zellij ls | grep -v EXITED | grep $zellij_session; then
-    echo "Attaching to existing session..."
-    zellij attach $zellij_session
-  else
-    echo "Starting new sessjon..."
-    zellij delete-session $zellij_session || true
-    new-zellij
-  fi
-fi
+# Interactive shell check
+[[ $- == *i* ]] || return
 
-# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
-# Initialization code that may require console input (password prompts, [y/n]
-# confirmations, etc.) must go above this block; everything else may go below.
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-fi
+# Source all .zsh files in order
+files=("${ZSH_CONFIG_DIR}"/*.zsh(N))
+files=("${(@on)files}")
+for f in "${files[@]}"; do
+  [[ -r $f ]] && source "$f"
+done
 
-
-# Path to your Oh My Zsh installation.
-export ZSH="$HOME/.oh-my-zsh"
-
-ZSH_THEME="powerlevel10k/powerlevel10k"
-
-zstyle ':omz:update' mode auto      # update automatically without asking
-
-zstyle ':omz:update' frequency 13
-
-# ENABLE_CORRECTION="true"
-
-# You can also set it to another string to have that shown instead of the default red dots.
-# e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
-# COMPLETION_WAITING_DOTS="true"
-
-# Uncomment the following line if you want to disable marking untracked files
-# under VCS as dirty. This makes repository status check for large repositories
-# much, much faster.
-# DISABLE_UNTRACKED_FILES_DIRTY="true"
-
-
-
-# Which plugins would you like to load?
-# Standard plugins can be found in $ZSH/plugins/
-# Custom plugins may be added to $ZSH_CUSTOM/plugins/
-# Example format: plugins=(rails git textmate ruby lighthouse)
-# Add wisely, as too many plugins slow down shell startup.
-# plugins=(git you-should-use aliases zsh-syntax-highlighting)
-plugins=(git zsh-syntax-highlighting)
-
-source $ZSH/oh-my-zsh.sh
-
-# User configuration
-
-# export MANPATH="/usr/local/man:$MANPATH"
-
-# You may need to manually set your language environment
-# export LANG=en_US.UTF-8
-
-export EDITOR='nvim'
-
-# Enable zsh vim mode
-ZVM_VI_ESCAPE_BINDKEY=jk
-bindkey -M viins "^[[A" history-beginning-search-backward
-bindkey -M viins "^[[B" history-beginning-search-forward
-
-
-# ALIASES
-function vim() {
-  uv run nvim "$@"
-}
-
-
-# ALIASES
-alias ls=eza
-alias ipython='uv run --with IPython ipython'
-alias zr='zellij run'
-alias ze='zellij edit'
-alias l='ls -lAh --no-user'  # to save space
-alias uvr='uv run'
-alias v=vim
-alias bat=batcat
-alias fd=fdfind
-
-# git
-alias wip='git stash --include-untracked > /dev/null && gcb "wip/$(git branch --show-current)" || gco "wip/$(git branch --show-current)" && git stash pop > /dev/null && gwip'
-alias unwip='gunwip && gco "${$(git branch --show-current)#*wip/}" && git branch -D "wip/$(git branch --show-current)"'
-
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-eval "$(uv generate-shell-completion zsh)"
-eval "$(uvx --generate-shell-completion zsh)"
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-
-eval "$(zoxide init zsh)"
-
+unset files f ZSH_CONFIG_DIR
 
 . "$HOME/.atuin/bin/env"
 
