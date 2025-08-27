@@ -1,8 +1,6 @@
 # 60-aliases.zsh — aliases
 
 # ls related
-alias ls=eza
-alias l='ls -lAh --no-user'
 alias lt='eza --tree'
 
 # uv tools - These inject the dependency into the existing environment.
