@@ -40,6 +40,7 @@ yq = "latest"  # like jq for yaml
 zellij = "latest"  # terminal workspace manager
 zizmor = "latest"  # Static analysis for GitHub Actions
 zoxide = "latest"  # a smarter cd command
+usage = "latest"
 
 # No ARM
 # dust = "latest"  # disk usage. du alternative
