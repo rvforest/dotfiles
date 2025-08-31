@@ -1,0 +1,25 @@
+{{/* boolean feature tags */}}
+{{- $is_ephemeral := false -}}{{/* true if this machine is ephemeral, e.g. a cloud or VM instance */}}
+{{- $is_headless := false -}}{{/* true if this machine does not have a screen and keyboard */}}
+{{- "" -}}
+
+{{/* detect GitHub codespaces, VSCode remote containers, Docker containers, Multipass VMs, and Vagrant boxes */}}
+{{- if or (env "CODESPACES") (env "REMOTE_CONTAINERS_IPC") (eq .chezmoi.username "root" "ubuntu" "vagrant" "vscode") -}}
+{{-   $ephemeral = true -}}
+{{-   $headless = true -}}
+{{- end -}}
+
+{{/* work around unreliable hostname on darwin */}}
+{{- $hostname := .chezmoi.hostname -}}
+{{- if eq .chezmoi.os "darwin" -}}
+{{-   $hostname := output "scutil" "--get" "LocalHostName" | trim -}}
+{{- end -}}
+
+
+[data]
+    is_ephemeral = {{ $is_ephemeral }}
+    is_headless = {{ $is_headless }}
+    hostname = {{ $hostname | quote }}
+
+[github]
+    refreshPeriod = "12h"
