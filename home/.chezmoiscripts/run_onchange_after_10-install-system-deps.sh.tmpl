@@ -1,0 +1,15 @@
+{{- if or (eq .chezmoi.osRelease.name "debian") (eq .chezmoi.osRelease.name "ubuntu") -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "installing system deps"
+sudo apt-get update -y
+sudo apt install -y build-essential
+sudo apt install -y software-properties-common
+sudo apt install -y unzip
+sudo apt install -y keyring
+sudo apt-get install -y gpg
+
+sudo apt-add-repository -y ppa:git-core/ppa
+sudo apt-get install -y git
+{{- end -}}

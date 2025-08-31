@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+gh_host=github.com
+# If not logged in, then log in with web browser
+if ! gh auth status --hostname $gh_host &> /dev/null; then
+  echo "Logging into GitHub"
+  gh auth login \
+    --hostname $gh_host
+    --git-protocol https
+    --scopes admin:ssh_signing_key
+    --web
+fi
+
+gh auth setup-git
+
