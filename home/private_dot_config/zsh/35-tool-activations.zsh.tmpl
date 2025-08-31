@@ -1,0 +1,11 @@
+#!/usr/bin/env zsh
+# activations.zsh Tool activations
+
+# Execution of commands in zvm_after_init_commands will be
+# delayed until after zsh vi mode initializes to prevent
+# keymap conflicts.
+zvm_after_init_commands=()
+
+zvm_after_init_commands+=(eval "$(atuin init zsh)")
+eval "$($HOME/.local/bin/mise activate zsh)"
+eval "$(zoxide init zsh)"
