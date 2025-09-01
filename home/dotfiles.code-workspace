@@ -9,6 +9,7 @@
 	],
 	"settings": {
 		"cSpell.words": [
+			"COMPDUMP",
 			"GNUPGHOME",
 			"HISTFILE",
 			"LESSHISTFILE",
@@ -16,7 +17,9 @@
 			"PYTHONHISTFILE",
 			"RUSTUP",
 			"USERCONFIG",
-			"WGETRC"
+			"WGETRC",
+			"zcompdump",
+			"zstyle"
 		]
 	}
 }
