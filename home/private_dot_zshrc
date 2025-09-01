@@ -15,7 +15,3 @@ for f in "${files[@]}"; do
 done
 
 unset files f ZSH_CONFIG_DIR
-
-. "$HOME/.atuin/bin/env"
-
-eval "$(atuin init zsh)"
