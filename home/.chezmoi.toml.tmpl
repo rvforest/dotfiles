@@ -3,6 +3,11 @@
 {{- $is_headless := false -}}{{/* true if this machine does not have a screen and keyboard */}}
 {{- "" -}}
 
+{{- $osID := .chezmoi.os -}}
+{{- if (and (eq .chezmoi.os "linux") (hasKey .chezmoi.osRelease "id")) -}}
+{{-   $osID = printf "%s-%s" .chezmoi.os .chezmoi.osRelease.id -}}
+{{- end -}}
+
 {{/* detect GitHub codespaces, VSCode remote containers, Docker containers, Multipass VMs, and Vagrant boxes */}}
 {{- if or (env "CODESPACES") (env "REMOTE_CONTAINERS_IPC") (eq .chezmoi.username "root" "ubuntu" "vagrant" "vscode") -}}
 {{-   $ephemeral = true -}}
@@ -24,6 +29,23 @@
     hostname = {{ $hostname | quote }}
 
     git_signing_key = "id_git_signing"
+    git_signing_key_comment = "git signing key"
+
+    zshPlugins = [
+        "aliases",  # show/search aliases
+        "eza",  # eza aliases
+        "fzf",  # enable fzf integration
+        "gh",  # GitHub CLI completions
+        "git",  # git aliases
+        "git-auto-fetch",  # automatically fetch
+        "git-extras",  # Extra completions
+        "mise",  # mise aliases
+        "pre-commit",  # pre-commit aliases
+        "vscode",  # aliases to open VSCode
+        "zoxide",  # initiate zoxide integration
+        "zsh-vi-mode",  # vim mode
+        "zsh-syntax-highlighting",
+    ]
 
 [github]
     refreshPeriod = "12h"
