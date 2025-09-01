@@ -1,0 +1,3 @@
+# Don't run compinit in /etc/zsh/zshrc
+# because it conflicts with the updated zcompdump location
+skip_global_compinit=1
