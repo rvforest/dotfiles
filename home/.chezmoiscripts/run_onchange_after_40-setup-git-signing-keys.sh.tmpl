@@ -6,8 +6,8 @@ set -e
 
 # chezmoi data variable for GitHub username
 
-SSH_KEY_COMMENT="git signing key"
-SSH_KEY_PATH="$HOME/.ssh/{{- .git_signing_key  -}}"
+SSH_KEY_PATH="$HOME/.ssh/{{- .git_signing_key -}}"
+SSH_KEY_COMMENT="{{- .git_signing_key_comment -}}"
 
 # Ensure gh is installed
 if ! command -v gh &>/dev/null; then
