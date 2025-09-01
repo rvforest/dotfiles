@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": ".local/share/chezmoi"
+		},
+		{
+			"path": ".config"
+		}
+	],
+	"settings": {
+		"cSpell.words": [
+			"GNUPGHOME",
+			"HISTFILE",
+			"LESSHISTFILE",
+			"lesshst",
+			"PYTHONHISTFILE",
+			"RUSTUP",
+			"USERCONFIG",
+			"WGETRC"
+		]
+	}
+}
