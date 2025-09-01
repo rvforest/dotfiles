@@ -1,37 +1,58 @@
-{{- $gh_bin := lookPath "gh" -}}
-[credential "https://github.com"]
-	helper = 
-	helper = !{{- $gh_bin -}} auth git-credential
-[credential "https://gist.github.com"]
-	helper = 
-	helper = !{{- $gh_bin -}} auth git-credential
+# User configuration
 [user]
 	name = {{ .name }}
 	email = {{ .email }}
 	signingkey = {{ env "HOME" }}/.ssh/{{- .git_signing_key -}}.pub
+
+# Core settings
 [core]
 	editor = vim
-    pager = delta
+	pager = delta
+
+# Branch and push settings
 [push]
 	autoSetupRemote = true
+
 [init]
 	defaultBranch = main
-[commit]
-	gpgsign = true
-[gpg]
-	format = ssh
-[delta]
-    navigate = true  # use n and N to move between diff sections
-    dark = true      # or light = true, or omit for auto-detection
+
+# Diff and delta configuration
 [diff]
 	tool = difftastic
+
 [difftool]
-  prompt = false
+	prompt = false
+
 [difftool "difftastic"]
 	cmd = difft "$LOCAL" "$REMOTE"
+
+[delta]
+	navigate = true  # use n and N to move between diff sections
+	dark = true      # or light = true, or omit for auto-detection
+
+[interactive]
+	diffFilter = delta --color-only
+
+[merge]
+	conflictStyle = zdiff3
+
+# Aliases
 [alias]
 	difft = difftool
-[merge]
-    conflictStyle = zdiff3
-[interactive]
-    diffFilter = delta --color-only
+
+# GPG signing
+[commit]
+	gpgsign = true
+	
+[gpg]
+	format = ssh
+
+# Credential helpers
+{{- $gh_bin := lookPath "gh" -}}
+[credential "https://github.com"]
+	helper = 
+	helper = !{{- $gh_bin -}} auth git-credential
+
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !{{- $gh_bin -}} auth git-credential
