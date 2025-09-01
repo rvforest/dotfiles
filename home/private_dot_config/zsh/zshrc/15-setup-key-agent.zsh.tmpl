@@ -6,6 +6,9 @@ if [ -z "$SSH_AGENT_PID" ] || ! kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
     eval "$(ssh-agent -s)" >/dev/null
 fi
 
+# Use XDG runtime directory for keychain files
+keychain --absolute --dir "$XDG_RUNTIME_DIR/keychain"
+
 KEY_PATH="$HOME/.ssh/{{- .git_signing_key }}"
 KEY_COMMENT="{{- .git_signing_key_comment }}"
 
