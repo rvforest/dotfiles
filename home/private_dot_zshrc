@@ -1,6 +1,6 @@
 # ~/.zshrc — loader for split config files
 ZDOTDIR=${ZDOTDIR:-$HOME}
-ZSH_CONFIG_DIR="${ZDOTDIR}/.config/zsh"
+ZSH_CONFIG_DIR="${ZDOTDIR}/.config/zsh/zshrc"
 
 if [[ ! -d $ZSH_CONFIG_DIR ]]; then ZSH_CONFIG_DIR="$ZDOTDIR"; fi
 
