@@ -16,7 +16,8 @@
 {{-   end }}
 
 
-[".oh-my-zsh"]
+
+[".local/share/oh-my-zsh"]
     type = "archive"
     url = "https://github.com/ohmyzsh/ohmyzsh/archive/master.tar.gz"
     exact = true
@@ -29,7 +30,7 @@
         "*/themes",
     ]
 
-[".oh-my-zsh/custom/plugins/zsh-syntax-highlighting"]
+[".local/share/oh-my-zsh/custom/plugins/zsh-syntax-highlighting"]
     type = "archive"
     url = "https://github.com/zsh-users/zsh-syntax-highlighting/archive/master.tar.gz"
     exact = true
@@ -42,13 +43,13 @@
         "*/.gitignore",
     ]
 
-[".oh-my-zsh/custom/themes/powerlevel10k"]
+[".local/share/oh-my-zsh/custom/themes/powerlevel10k"]
     type = "archive"
     url = "https://github.com/romkatv/powerlevel10k/archive/{{ (gitHubLatestRelease "romkatv/powerlevel10k").TagName }}.tar.gz"
     exact = true
     stripComponents = 1
 
-[".oh-my-zsh/custom/plugins/zsh-vi-mode"]
+[".local/share/oh-my-zsh/custom/plugins/zsh-vi-mode"]
     type = "archive"
     url = "https://github.com/jeffreytse/zsh-vi-mode/archive/master.tar.gz"
     exact = true
