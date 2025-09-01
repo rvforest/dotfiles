@@ -11,6 +11,7 @@
 	signingkey = {{ env "HOME" }}/.ssh/{{- .git_signing_key -}}.pub
 [core]
 	editor = vim
+    pager = delta
 [push]
 	autoSetupRemote = true
 [init]
@@ -19,3 +20,18 @@
 	gpgsign = true
 [gpg]
 	format = ssh
+[delta]
+    navigate = true  # use n and N to move between diff sections
+    dark = true      # or light = true, or omit for auto-detection
+[diff]
+	tool = difftastic
+[difftool]
+  prompt = false
+[difftool "difftastic"]
+	cmd = difft "$LOCAL" "$REMOTE"
+[alias]
+	difft = difftool
+[merge]
+    conflictStyle = zdiff3
+[interactive]
+    diffFilter = delta --color-only
