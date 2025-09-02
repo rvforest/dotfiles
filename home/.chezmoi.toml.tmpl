@@ -45,17 +45,19 @@
     zshPlugins = [
         "aliases",  # show/search aliases
         "eza",  # eza aliases
-        "fzf",  # enable fzf integration
         "gh",  # GitHub CLI completions
         "git",  # git aliases
         "git-auto-fetch",  # automatically fetch
         "git-extras",  # Extra completions
-        "mise",  # mise aliases
         "pre-commit",  # pre-commit aliases
         "vscode",  # aliases to open VSCode
-        "zoxide",  # initiate zoxide integration
         "zsh-vi-mode",  # vim mode
         "zsh-syntax-highlighting",
+{{ if not $is_mobile -}}
+        "fzf",
+        "mise",  # mise aliases
+        "zoxide",  # initiate zoxide integration
+{{ end -}}
     ]
 
 [github]
