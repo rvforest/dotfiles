@@ -1,4 +1,8 @@
 # ~/.zshrc — loader for split config files
+if [[ -n "$ZSHRC_PROF" ]]; then
+  zmodload zsh/zprof
+fi
+
 ZDOTDIR=${ZDOTDIR:-$HOME}
 ZSH_CONFIG_DIR="${ZDOTDIR}/.config/zsh/zshrc"
 
@@ -15,3 +19,7 @@ for f in "${files[@]}"; do
 done
 
 unset files f ZSH_CONFIG_DIR
+
+if [[ -n "$ZSHRC_PROF" ]]; then
+  zprof
+fi
