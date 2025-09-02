@@ -1,11 +1,17 @@
 {{/* boolean feature tags */}}
 {{- $is_ephemeral := false -}}{{/* true if this machine is ephemeral, e.g. a cloud or VM instance */}}
 {{- $is_headless := false -}}{{/* true if this machine does not have a screen and keyboard */}}
+{{- $is_mobile := false -}}{{/* true if this machine is a mobile device */}}
 {{- "" -}}
 
 {{- $osID := .chezmoi.os -}}
 {{- if (and (eq .chezmoi.os "linux") (hasKey .chezmoi.osRelease "id")) -}}
 {{-   $osID = printf "%s-%s" .chezmoi.os .chezmoi.osRelease.id -}}
+{{- end -}}
+
+{{/* detect mobile device */}}
+{{- if eq .chezmoi.username "userland" -}}
+{{-   $is_mobile = true -}}
 {{- end -}}
 
 {{/* detect GitHub codespaces, VSCode remote containers, Docker containers, Multipass VMs, and Vagrant boxes */}}
@@ -27,6 +33,7 @@
     gh_user = "rvforest"
     is_ephemeral = {{ $is_ephemeral }}
     is_headless = {{ $is_headless }}
+    is_mobile = {{ $is_mobile }}
     hostname = {{ $hostname | quote }}
 
     git_signing_key = "id_git_signing"
