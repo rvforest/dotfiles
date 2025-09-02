@@ -7,5 +7,9 @@
 zvm_after_init_commands=()
 
 zvm_after_init_commands+=('eval "$(atuin init zsh)"')
+{{if .is_mobile -}}
+export PATH=~/.local/share/mise/shims:$PATH
+{{- else -}}
 eval "$($HOME/.local/bin/mise activate zsh)"
+{{- end }}
 eval "$(zoxide init zsh)"
