@@ -1,27 +1,32 @@
 #!/usr/bin/env zsh
 
+# If zellij session is already running then assume
+# ssh agent is already set up in the session.
+zellij_session=$(hostname)
+if ! zellij ls | grep -v EXITED | grep $zellij_session; then
 # Start or connect to ssh-agent if not already running
-if [ -z "$SSH_AGENT_PID" ] || ! kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
-    echo "Starting ssh agent"
-    eval "$(ssh-agent -s)" >/dev/null
-fi
+  if [ -z "$SSH_AGENT_PID" ] || ! kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
+      echo "Starting ssh agent"
+      eval "$(ssh-agent -s)" >/dev/null
+  fi
 
 # Use XDG runtime directory for keychain files
-keychain --absolute --dir "$XDG_RUNTIME_DIR/keychain"
+  keychain --absolute --dir "$XDG_RUNTIME_DIR/keychain"
 
-KEY_PATH="$HOME/.ssh/{{- .git_signing_key }}"
-KEY_COMMENT="{{- .git_signing_key_comment }}"
+  KEY_PATH="$HOME/.ssh/{{- .git_signing_key }}"
+  KEY_COMMENT="{{- .git_signing_key_comment }}"
 
 # Check if key file exists
-if [[ -f "$KEY_PATH" ]]; then
-    # Check if key is already loaded
-    if ! ssh-add -l | grep -q "$KEY_COMMENT"; then
-        ssh-add "$KEY_PATH"
-    fi
+  if [[ -f "$KEY_PATH" ]]; then
+      # Check if key is already loaded
+      if ! ssh-add -l | grep -q "$KEY_COMMENT"; then
+          ssh-add "$KEY_PATH"
+      fi
+  fi
+
+  export SSH_AGENT_PID
+  export SSH_AUTH_SOCK
+
+  unset KEY_PATH
+  unset KEY_COMMENT
 fi
-
-export SSH_AGENT_PID
-export SSH_AUTH_SOCK
-
-unset KEY_PATH
-unset KEY_COMMENT
