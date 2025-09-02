@@ -16,8 +16,11 @@
 
 {{/* detect GitHub codespaces, VSCode remote containers, Docker containers, Multipass VMs, and Vagrant boxes */}}
 {{- if or (env "CODESPACES") (env "REMOTE_CONTAINERS_IPC") (eq .chezmoi.username "root" "ubuntu" "vagrant" "vscode") -}}
-{{-   $ephemeral = true -}}
-{{-   $headless = true -}}
+{{-   $is_ephemeral = true -}}
+{{-   $is_headless = true -}}
+{{- else if $is_mobile -}}
+{{-   $is_ephemeral = false -}}
+{{-   $is_headless = true -}}
 {{- end -}}
 
 {{/* work around unreliable hostname on darwin */}}
