@@ -13,6 +13,9 @@
 [push]
 	autoSetupRemote = true
 
+[pull]
+  rebase = true
+
 [init]
 	defaultBranch = main
 
@@ -43,16 +46,16 @@
 # GPG signing
 [commit]
 	gpgsign = true
-	
+
 [gpg]
 	format = ssh
 
 # Credential helpers
-{{- $gh_bin := lookPath "gh" -}}
+{{- $gh_bin := lookPath "gh" }}
 [credential "https://github.com"]
 	helper = 
-	helper = !{{- $gh_bin -}} auth git-credential
+	helper = !{{- $gh_bin }} auth git-credential
 
 [credential "https://gist.github.com"]
 	helper = 
-	helper = !{{- $gh_bin -}} auth git-credential
+	helper = !{{- $gh_bin }} auth git-credential

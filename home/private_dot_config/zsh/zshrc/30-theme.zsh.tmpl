@@ -1,8 +1,14 @@
 # 30-p10k.zsh — Powerlevel10k instant prompt loader
-export ZSH_THEME="powerlevel10k/powerlevel10k"
 
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+if [[ $TERM_PROGRAM == "vscode" ]]; then
+  # Copilot agent has trouble with p10k. Use starhip instead.
+  eval "$(starship init zsh)"
+else
+  export ZSH_THEME="powerlevel10k/powerlevel10k"
+
+  if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+    source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+  fi
+
+  [[ ! -f ~/.config/zsh/p10k.zsh ]] || source ~/.config/zsh/p10k.zsh
 fi
-
-[[ ! -f ~/.config/zsh/p10k.zsh ]] || source ~/.config/zsh/p10k.zsh
