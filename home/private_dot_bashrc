@@ -119,4 +119,6 @@ fi
 
 
 [[ -f ~/.config/bash/bash-preexec.sh ]] && source ~/.config/bash/bash-preexec.sh
+{{if .is_mobile -}}
 eval "$(atuin init bash)"
+{{- end }}
