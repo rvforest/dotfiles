@@ -55,3 +55,16 @@
     exact = true
     stripComponents = 1
     refreshPeriod = "168h"
+
+
+{{- /* trufflehog prebuilt release for Linux arm64 only */}}
+{{- $th := gitHubLatestRelease "trufflesecurity/trufflehog" }}
+
+{{- if eq .chezmoi.os "linux" }}
+[".local/bin/trufflehog"]
+    type = "archive-file"
+    url = "https://github.com/trufflesecurity/trufflehog/releases/download/{{ $th.TagName }}/trufflehog_{{ trimPrefix "v" $th.TagName }}_linux_arm64.tar.gz"
+    executable = true
+    path = "trufflehog"
+{{- end }}
+
