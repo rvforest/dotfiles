@@ -59,7 +59,6 @@
 
 {{- /* trufflehog prebuilt release for Linux arm64 only */}}
 {{- $th := gitHubLatestRelease "trufflesecurity/trufflehog" }}
-
 {{- if eq .chezmoi.os "linux" }}
 [".local/bin/trufflehog"]
     type = "archive-file"
@@ -68,3 +67,10 @@
     path = "trufflehog"
 {{- end }}
 
+
+{{- $dotenvx_release := gitHubLatestRelease "dotenvx/dotenvx" }}
+[".local/bin/dotenvx"]
+    type = "archive-file"
+    url = "https://github.com/dotenvx/dotenvx/releases/download/{{ $dotenvx_release.TagName }}/dotenvx-{{ trimPrefix "v" $dotenvx_release.TagName }}-linux-aarch64.tar.gz"
+    executable = true
+    path = "./dotenvx"
