@@ -2,6 +2,7 @@
 
 if [[ $TERM_PROGRAM == "vscode" ]]; then
   # Copilot agent has trouble with p10k. Use starhip instead.
+  unset ZSH_THEME
   eval "$(starship init zsh)"
 else
   export ZSH_THEME="powerlevel10k/powerlevel10k"
