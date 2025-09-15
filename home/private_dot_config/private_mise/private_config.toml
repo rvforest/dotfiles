@@ -13,6 +13,7 @@ colima = "latest"  # Container runtime
 coreutils = "latest"  # GNU core utilities
 copier = "latest"  # Project templating tool
 delta = "latest"  # improved diff
+direnv = "latest"  # directory env vars
 difftastic = "latest"  # Structural diff tool for code
 docker-cli = "latest"  # Docker command-line client
 docker-compose = "latest"  # Orchestrate multi-container Docker applications
