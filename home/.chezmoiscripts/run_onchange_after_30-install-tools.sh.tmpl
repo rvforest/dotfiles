@@ -3,3 +3,8 @@
 mise prune
 mise install
 
+uv tool uninstall --all
+{{/* Iterate over uv_tools and install each one. */}}
+{{- range .uv_tools }}
+uv tool install {{ . }}
+{{- end }}
