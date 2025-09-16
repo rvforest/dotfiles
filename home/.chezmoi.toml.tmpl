@@ -29,6 +29,14 @@
 {{-   $hostname := output "scutil" "--get" "LocalHostName" | trim -}}
 {{- end -}}
 
+{{/* detect WSL */}}
+{{- $is_wsl := false -}}
+{{- $kernel := output "uname" "-r" | trim -}}
+{{-   $kernelLower := lower $kernel -}}
+{{-   if or ($kernelLower | contains "wsl") ($kernelLower | contains "microsoft") -}}
+{{-     $is_wsl = true -}}
+{{-   end -}}
+
 
 [data]
     name = "Robert Forest"
@@ -37,6 +45,7 @@
     is_ephemeral = {{ $is_ephemeral }}
     is_headless = {{ $is_headless }}
     is_mobile = {{ $is_mobile }}
+    is_wsl = {{ $is_wsl }}
     hostname = {{ $hostname | quote }}
 
     git_signing_key = "id_git_signing"
