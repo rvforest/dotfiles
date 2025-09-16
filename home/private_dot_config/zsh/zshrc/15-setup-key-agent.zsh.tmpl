@@ -3,7 +3,7 @@
 # If zellij session is already running then assume
 # ssh agent is already set up in the session.
 zellij_session=$(hostname)
-if ! zellij ls | grep -v EXITED | grep $zellij_session; then
+if ! mise x -- zellij ls | grep -v EXITED | grep $zellij_session; then
 # Start or connect to ssh-agent if not already running
   if [ -z "$SSH_AGENT_PID" ] || ! kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
       echo "Starting ssh agent"

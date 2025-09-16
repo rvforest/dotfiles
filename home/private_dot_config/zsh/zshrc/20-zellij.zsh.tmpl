@@ -2,14 +2,14 @@
 zellij_session=$(hostname)
 
 new-zellij () {
-  zellij options \
+  mise x -- zellij options \
     --no-pane-frames \
     --default-layout disable-status-bar \
     --session-name $zellij_session
 }
 
 if [[ -z "$ZELLIJ" ]]; then
-  if zellij ls | grep -v EXITED | grep $zellij_session; then
+  if mise x -- zellij ls | grep -v EXITED | grep $zellij_session; then
     echo "Attaching to existing session..."
     zellij attach $zellij_session
   else
