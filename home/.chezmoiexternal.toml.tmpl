@@ -74,3 +74,13 @@
     url = "https://github.com/dotenvx/dotenvx/releases/download/{{ $dotenvx_release.TagName }}/dotenvx-{{ trimPrefix "v" $dotenvx_release.TagName }}-linux-aarch64.tar.gz"
     executable = true
     path = "./dotenvx"
+
+
+{{- if .is_wsl }}
+[".local/bin/win32yank.exe"]
+  type = "archive-file"
+  url = "https://github.com/equalsraf/win32yank/releases/download/v0.0.4/win32yank-x64.zip"
+  path = "win32yank.exe"
+  executable = true
+  refreshPeriod = "168h"
+{{- end }}
