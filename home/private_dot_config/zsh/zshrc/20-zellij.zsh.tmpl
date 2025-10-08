@@ -1,14 +1,18 @@
 # 20-zellij.zsh — zellij session logic
 zellij_session=$(hostname)
 
-new-zellij () {
-  mise x -- zellij options \
-    --no-pane-frames \
-    --default-layout disable-status-bar \
-    --session-name $zellij_session
-}
+# do not auto-start or attach zellij when running inside VS Code terminals (as denoted by $VSCODE)
+# or if already inside a zellij session (as denoted by $ZELLIJ).
+# Only proceed when not in VS Code and when $ZELLIJ is unset/empty
+if [[ -z "$VSCODE" && -z "$ZELLIJ" ]]; then
 
-if [[ -z "$ZELLIJ" ]]; then
+  new-zellij() {
+    mise x -- zellij options \
+      --no-pane-frames \
+      --default-layout disable-status-bar \
+      --session-name $zellij_session
+  }
+
   if mise x -- zellij ls | grep -v EXITED | grep $zellij_session; then
     echo "Attaching to existing session..."
     zellij attach $zellij_session
@@ -17,4 +21,5 @@ if [[ -z "$ZELLIJ" ]]; then
     zellij delete-session $zellij_session || true
     new-zellij
   fi
+
 fi
