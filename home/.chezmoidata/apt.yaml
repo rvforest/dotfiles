@@ -1,0 +1,12 @@
+apt:
+  repos:
+    - ppa:git-core/ppa
+  packages:
+    - locales
+    - build-essential
+    - software-properties-common
+    - unzip
+    - keyring
+    - pass
+    - gpg
+    - git
