@@ -1,0 +1,50 @@
+homebrew_packages_core:
+  # Essential CLI tools - always installed
+  - bat                   # improved cat
+  - choose                # human-friendly alternative to cut
+  - coreutils             # GNU core utilities
+  - delta                 # improved diff
+  - direnv                # directory env vars
+  - duf                   # disk free. df alternative
+  - eza                   # improved ls
+  - fd                    # improved find
+  - fzf                   # fuzzy matching
+  - gh                    # GitHub CLI
+  - jq                    # JSON processor
+  - neovim                # Modern vim
+  - ripgrep               # Fast text/code search
+  - sd                    # sed alternative
+  - shellcheck            # Shell script linter
+  - shfmt                 # Shell script formatter
+  - uv                    # Python package manager
+  - yq                    # like jq for yaml
+  - zoxide                # a smarter cd command
+
+homebrew_packages_desktop:
+  # Development and heavy tools - desktop only
+  - act                   # run github actions locally
+  - actionlint            # lint github actions
+  - ast-grep              # CLI tool for code structural search
+  - atuin                 # shell history (can be resource intensive)
+  - bat-extras            # Extensions for bat (diff, grep, man, etc)
+  - btop                  # improved top (resource monitoring)
+  - colima                # Container runtime
+  - copier                # Project templating tool
+  - difftastic            # Structural diff tool for code
+  - docker                # Docker command-line client
+  - docker-compose        # Orchestrate multi-container Docker applications
+  - duckdb                # Analytical DB for local files
+  - jd                    # JSON diff
+  - jnv                   # Interactive JSON filter using jq
+  - node                  # node.js runtime
+  - rust                  # Rust language
+  - yamllint              # yaml linter
+  - yamlfmt               # yaml formatter
+  - yj                    # Convert between YAML, TOML, JSON, and HCL
+  - zellij                # terminal workspace manager
+  - usage                 # usage CLI tool
+
+homebrew_casks_desktop:
+  # GUI applications and special packages - desktop only
+  # Add any cask packages here as needed
+

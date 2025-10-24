@@ -6,10 +6,17 @@
 # keymap conflicts.
 zvm_after_init_commands=()
 
-{{if .is_mobile -}}
-export PATH=~/.local/share/mise/shims:$PATH
-{{- else -}}
-eval "$($HOME/.local/bin/mise activate zsh)"
-zvm_after_init_commands+=('eval "$(atuin init zsh)"')
+# Initialize homebrew environment
+if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+elif [[ -d "$HOME/.linuxbrew" ]]; then
+    eval "$($HOME/.linuxbrew/bin/brew shellenv)"
+fi
+
+{{if not .is_mobile -}}
+# Desktop-only tool activations
+if command -v atuin >/dev/null 2>&1; then
+    zvm_after_init_commands+=('eval "$(atuin init zsh)"')
+fi
 {{- end }}
 eval "$(zoxide init zsh)"

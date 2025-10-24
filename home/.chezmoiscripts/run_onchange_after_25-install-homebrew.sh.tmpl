@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Check if homebrew is already installed
+if command -v brew >/dev/null 2>&1; then
+    echo "Homebrew is already installed."
+    exit 0
+fi
+
+
+echo "Installing Homebrew..."
+
+# Install homebrew
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Add homebrew to PATH for this session
+if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+elif [[ -d "$HOME/.linuxbrew" ]]; then
+    eval "$($HOME/.linuxbrew/bin/brew shellenv)"
+fi
+
+echo "Homebrew installation completed."

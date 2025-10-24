@@ -1,10 +1,45 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-mise prune
-mise install
+# Ensure homebrew is in PATH
+if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+elif [[ -d "$HOME/.linuxbrew" ]]; then
+    eval "$($HOME/.linuxbrew/bin/brew shellenv)"
+fi
+
+echo "Installing core homebrew packages..."
+{{/* Install core packages (always installed) */}}
+{{- range .homebrew_packages_core }}
+brew install {{ . }}
+{{- end }}
+
+{{/* Install desktop packages only if not on mobile */}}
+{{- if not .is_mobile }}
+echo "Installing desktop homebrew packages..."
+{{- range .homebrew_packages_desktop }}
+brew install {{ . }}
+{{- end }}
+
+{{- if .homebrew_casks_desktop }}
+echo "Installing desktop homebrew casks..."
+{{- range .homebrew_casks_desktop }}
+brew install --cask {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+echo "Installing uv tools..."
+# Ensure uv is available
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Warning: uv not found, skipping uv tool installation"
+    exit 0
+fi
 
 uv tool uninstall --all
 {{/* Iterate over uv_tools and install each one. */}}
 {{- range .uv_tools }}
 uv tool install {{ . }}
 {{- end }}
+
+echo "Tool installation completed."

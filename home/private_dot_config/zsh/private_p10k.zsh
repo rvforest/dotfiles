@@ -242,7 +242,6 @@
     .perl-version
     .php-version
     .tool-versions
-    .mise.toml
     .shorten_folder_marker
     .svn
     .terraform
