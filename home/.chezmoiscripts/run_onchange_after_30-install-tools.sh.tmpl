@@ -9,9 +9,12 @@ elif [[ -d "$HOME/.linuxbrew" ]]; then
 fi
 
 echo "Installing core homebrew packages..."
+casks=$(brew ls)
+outdated=$(brew outdated)
 {{/* Install core packages (always installed) */}}
 {{- range .homebrew_packages_core }}
-brew install {{ . }}
+match=" {{ . }} " 
+(echo $casks | grep "$match" > /dev/null && ! echo $outdated | grep "$match" > /dev/null) || brew install {{ . }}
 {{- end }}
 
 {{/* Install desktop packages only if not on mobile */}}
