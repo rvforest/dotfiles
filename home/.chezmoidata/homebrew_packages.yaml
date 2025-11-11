@@ -11,6 +11,7 @@ homebrew_packages_core:
   - fzf                   # fuzzy matching
   - gh                    # GitHub CLI
   - jq                    # JSON processor
+  - keychain              # enables one ssh-agent per system
   - neovim                # Modern vim
   - ripgrep               # Fast text/code search
   - sd                    # sed alternative
