@@ -14,7 +14,6 @@ if [[ -z "$VSCODE" && -z "$ZELLIJ" ]]; then
       --session-name $zellij_session
   }
 
-if [[ -z "$ZELLIJ" ]]; then
   if zellij ls | grep -v EXITED | grep $zellij_session; then
     echo "Attaching to existing session..."
     zellij attach $zellij_session
