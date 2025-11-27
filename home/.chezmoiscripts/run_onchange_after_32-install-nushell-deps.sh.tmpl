@@ -1,0 +1,7 @@
+#!/usr/bin/env nu
+
+const nu_vendor_loc = "~/.local/share/nushell/vendor"
+const nupm_loc = $"($nu_vendor_loc)/nupm"
+
+use $"($nupm_loc)/nupm"  
+nupm install $nupm_loc --force --path

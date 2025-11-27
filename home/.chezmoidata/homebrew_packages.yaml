@@ -13,6 +13,7 @@ homebrew_packages_core:
   - jq                    # JSON processor
   - keychain              # enables one ssh-agent per system
   - neovim                # Modern vim
+  - nushell                    # Cross-platform data first shell
   - ripgrep               # Fast text/code search
   - sd                    # sed alternative
   - shellcheck            # Shell script linter

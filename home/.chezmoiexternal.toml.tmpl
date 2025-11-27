@@ -56,6 +56,11 @@
     stripComponents = 1
     refreshPeriod = "168h"
 
+[".local/share/nushell/vendor/nupm"]
+    type = "git-repo"
+    url = "https://github.com/nushell/nupm.git"
+    refreshPeriod = "168h"
+
 
 {{- /* trufflehog prebuilt release for Linux arm64 only */}}
 {{- $th := gitHubLatestRelease "trufflesecurity/trufflehog" }}
