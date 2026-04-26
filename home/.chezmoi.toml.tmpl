@@ -51,23 +51,5 @@
     git_signing_key = "id_git_signing"
     git_signing_key_comment = "git signing key"
 
-    zshPlugins = [
-        "aliases",  # show/search aliases
-        "eza",  # eza aliases
-        "direnv",  # direnv integration
-        "gh",  # GitHub CLI completions
-        "git",  # git aliases
-        "git-auto-fetch",  # automatically fetch
-        "git-extras",  # Extra completions
-        "pre-commit",  # pre-commit aliases
-        "vscode",  # aliases to open VSCode
-        "zsh-vi-mode",  # vim mode
-        "zsh-syntax-highlighting",
-{{ if not $is_mobile -}}
-        "fzf",
-        "zoxide",  # initiate zoxide integration
-{{ end -}}
-    ]
-
 [github]
     refreshPeriod = "12h"

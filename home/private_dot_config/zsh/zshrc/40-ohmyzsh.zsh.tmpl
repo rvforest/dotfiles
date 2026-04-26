@@ -1,8 +1,20 @@
 # ohmyzsh.zsh - Oh My Zsh theme and plugin settings
 
 plugins=(
-{{- range .zshPlugins }}
-  {{ . }}
+  aliases
+  eza
+  direnv
+  gh
+  git
+  git-auto-fetch
+  git-extras
+  pre-commit
+  vscode
+  zsh-vi-mode
+  zsh-syntax-highlighting
+{{- if not .is_mobile }}
+  fzf
+  zoxide
 {{- end }}
 )
 
