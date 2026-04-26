@@ -50,6 +50,9 @@
 [gpg]
 	format = ssh
 
+[gpg "ssh"]
+	allowedSignersFile = ~/.config/git/allowed_signers
+
 # Credential helpers
 {{- $gh_bin := lookPath "gh" }}
 [credential "https://github.com"]

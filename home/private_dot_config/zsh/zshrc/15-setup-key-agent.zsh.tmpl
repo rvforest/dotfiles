@@ -1,32 +1,33 @@
-#!/usr/bin/env zsh
+# Warn if any GPG key or subkey expires within 30 days
+if command -v gpg >/dev/null 2>&1; then
+  gpg --list-keys --with-colons 2>/dev/null | awk -F: '
+    /^[ps]ub:/ {
+      key = $5
+      expires_at = $7
+      if (expires_at != "" && expires_at < systime() + 2592000) {
+        print "\033[1;33mWarning: GPG key " key " expires within 30 days!\033[0m"
+      }
+    }'
+fi
 
-# If zellij session is already running then assume
-# ssh agent is already set up in the session.
-zellij_session=$(hostname)
-if ! zellij ls | grep -v EXITED | grep $zellij_session; then
-# Start or connect to ssh-agent if not already running
-  if [ -z "$SSH_AGENT_PID" ] || ! kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
-      echo "Starting ssh agent"
-      eval "$(ssh-agent -s)" >/dev/null
-  fi
-
-# Use XDG runtime directory for keychain files
-  keychain --absolute --dir "$XDG_RUNTIME_DIR/keychain"
-
+# Reuse one ssh-agent across shells and preload the Git signing key.
+if command -v keychain >/dev/null 2>&1; then
   KEY_PATH="$HOME/.ssh/{{- .git_signing_key }}"
-  KEY_COMMENT="{{- .git_signing_key_comment }}"
+  KEYCHAIN_DIR="${XDG_RUNTIME_DIR:-$XDG_CACHE_HOME}/keychain"
 
-# Check if key file exists
   if [[ -f "$KEY_PATH" ]]; then
-      # Check if key is already loaded
-      if ! ssh-add -l | grep -q "$KEY_COMMENT"; then
-          ssh-add "$KEY_PATH"
-      fi
+    eval "$(keychain --eval --quiet --absolute --dir "$KEYCHAIN_DIR" "$KEY_PATH")"
+  else
+    eval "$(keychain --eval --quiet --absolute --dir "$KEYCHAIN_DIR")"
   fi
-
-  export SSH_AGENT_PID
-  export SSH_AUTH_SOCK
 
   unset KEY_PATH
-  unset KEY_COMMENT
+  unset KEYCHAIN_DIR
+fi
+
+# GPG agent setup for pass and GPG operations
+if tty -s && command -v gpg-connect-agent >/dev/null 2>&1; then
+  GPG_TTY=$(tty)
+  export GPG_TTY
+  gpg-connect-agent updatestartuptty /bye >/dev/null
 fi

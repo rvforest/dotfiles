@@ -1,33 +1,43 @@
-#!/usr/bin/env bash
-
 #!/bin/bash
 
 set -e
 
-# chezmoi data variable for GitHub username
-
 SSH_KEY_PATH="$HOME/.ssh/{{- .git_signing_key -}}"
+SSH_PUB_KEY_PATH="$SSH_KEY_PATH.pub"
 SSH_KEY_COMMENT="{{- .git_signing_key_comment -}}"
-
-# Ensure gh is installed
-if ! command -v gh &>/dev/null; then
-  echo "gh CLI not found. Please install GitHub CLI and authenticate with 'gh auth login'."
-  exit 1
-fi
+SIGNING_PRINCIPAL="{{- .email -}}"
+ALLOWED_SIGNERS_PATH="${XDG_CONFIG_HOME:-$HOME/.config}/git/allowed_signers"
 
 # Check for existing signing SSH key
 if [[ -f "$SSH_KEY_PATH" ]]; then
     echo "A git signing SSH key already exists at $SSH_KEY_PATH. Skipping key creation."
 else
+    # Ensure gh is installed before generating and uploading a new signing key.
+    if ! command -v gh &>/dev/null; then
+      echo "gh CLI not found. Please install GitHub CLI and authenticate with 'gh auth login'."
+      exit 1
+    fi
+
     echo "Creating new SSH key for git signing..."
     ssh-keygen -t ed25519 -C "$SSH_KEY_COMMENT" -f "$SSH_KEY_PATH"
     
     # Add the public key to GitHub for commit/tags signing
     echo "Uploading SSH signing key to GitHub via gh CLI..."
-    gh ssh-key add "$SSH_KEY_PATH.pub" --title "Git signing key ($(hostname))" --type "signing"
+    gh ssh-key add "$SSH_PUB_KEY_PATH" --title "Git signing key ($(hostname))" --type "signing"
 
     # git config for signing is in the dotfile template
 
     echo "Setup complete. Your commits and tags will be signed with your SSH key and verified by GitHub."
 fi
+
+if [[ -f "$SSH_PUB_KEY_PATH" ]]; then
+    mkdir -p "$(dirname "$ALLOWED_SIGNERS_PATH")"
+    SSH_PUB_KEY="$(awk '{print $1, $2}' "$SSH_PUB_KEY_PATH")"
+    printf '%s namespaces="git" %s\n' "$SIGNING_PRINCIPAL" "$SSH_PUB_KEY" > "$ALLOWED_SIGNERS_PATH"
+    unset SSH_PUB_KEY
+fi
+
+unset SSH_PUB_KEY_PATH
+unset SIGNING_PRINCIPAL
+unset ALLOWED_SIGNERS_PATH
 
