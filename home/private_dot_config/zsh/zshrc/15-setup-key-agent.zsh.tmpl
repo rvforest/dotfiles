@@ -1,6 +1,6 @@
 # Warn if any GPG key or subkey expires within 30 days
 if command -v gpg >/dev/null 2>&1; then
-  gpg --list-keys --with-colons 2>/dev/null | awk -F: '
+  gpg --list-keys --with-colons "{{- .email -}}" 2>/dev/null | awk -F: '
     /^[ps]ub:/ {
       key = $5
       expires_at = $7
