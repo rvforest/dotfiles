@@ -9,7 +9,7 @@ if [[ -z "$VSCODE" && -z "$ZELLIJ" ]]; then
 
   new-zellij() {
     zellij options \
-      --no-pane-frames \
+      --pane-frames false \
       --default-layout disable-status-bar \
       --session-name $zellij_session
   }
