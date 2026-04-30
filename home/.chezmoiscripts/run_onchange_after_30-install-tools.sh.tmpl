@@ -8,29 +8,114 @@ elif [[ -d "$HOME/.linuxbrew" ]]; then
     eval "$($HOME/.linuxbrew/bin/brew shellenv)"
 fi
 
-echo "Installing core homebrew packages..."
-casks=$(brew ls)
-outdated=$(brew outdated)
-{{/* Install core packages (always installed) */}}
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
+mkdir -p "$state_dir"
+
+managed_formulas_file="$state_dir/homebrew-formulas.txt"
+managed_casks_file="$state_dir/homebrew-casks.txt"
+
+read_state_file() {
+    local file_path=$1
+    local array_name=$2
+    local -n items_ref="$array_name"
+
+    items_ref=()
+    if [[ -f "$file_path" ]]; then
+        mapfile -t items_ref < "$file_path"
+    fi
+}
+
+write_state_file() {
+    local file_path=$1
+    shift
+
+    if (($# > 0)); then
+        printf '%s\n' "$@" > "$file_path"
+    else
+        : > "$file_path"
+    fi
+}
+
+reconcile_brew_items() {
+    local scope_flag=$1
+    local label=$2
+    local desired_array_name=$3
+    local managed_file=$4
+    local -n desired_items_ref="$desired_array_name"
+    local -a installed_items=()
+    local -a outdated_items=()
+    local -a previously_managed_items=()
+    local -a brew_scope_args=()
+    declare -A desired_items_set=()
+    declare -A installed_items_set=()
+    declare -A outdated_items_set=()
+
+    if [[ -n "$scope_flag" ]]; then
+        brew_scope_args+=("$scope_flag")
+    fi
+
+    mapfile -t installed_items < <(brew list "${brew_scope_args[@]}")
+    mapfile -t outdated_items < <(brew outdated --quiet "${brew_scope_args[@]}" || true)
+    read_state_file "$managed_file" previously_managed_items
+
+    for item in "${desired_items_ref[@]}"; do
+        desired_items_set["$item"]=1
+    done
+
+    for item in "${installed_items[@]}"; do
+        installed_items_set["$item"]=1
+    done
+
+    for item in "${outdated_items[@]}"; do
+        outdated_items_set["$item"]=1
+    done
+
+    echo "Reconciling homebrew $label..."
+    for item in "${desired_items_ref[@]}"; do
+        if [[ -n "${installed_items_set[$item]+x}" ]]; then
+            if [[ -n "${outdated_items_set[$item]+x}" ]]; then
+                echo "Upgrading $label: $item"
+                brew upgrade "${brew_scope_args[@]}" "$item"
+            else
+                echo "$label already up to date: $item"
+            fi
+        else
+            echo "Installing $label: $item"
+            brew install "${brew_scope_args[@]}" "$item"
+        fi
+    done
+
+    for item in "${previously_managed_items[@]}"; do
+        if [[ -z "${desired_items_set[$item]+x}" && -n "${installed_items_set[$item]+x}" ]]; then
+            echo "Uninstalling removed $label: $item"
+            brew uninstall "${brew_scope_args[@]}" "$item"
+        fi
+    done
+
+    write_state_file "$managed_file" "${desired_items_ref[@]}"
+}
+
+desired_formulas=(
 {{- range .homebrew_packages_core }}
-match=" {{ . }} " 
-(echo $casks | grep "$match" > /dev/null && ! echo $outdated | grep "$match" > /dev/null) || brew install {{ . }}
+    "{{ . }}"
 {{- end }}
-
-{{/* Install desktop packages only if not on mobile */}}
 {{- if not .is_mobile }}
-echo "Installing desktop homebrew packages..."
 {{- range .homebrew_packages_desktop }}
-brew install {{ . }}
+    "{{ . }}"
 {{- end }}
+{{- end }}
+)
 
-{{- if .homebrew_casks_desktop }}
-echo "Installing desktop homebrew casks..."
+desired_casks=(
+{{- if not .is_mobile }}
 {{- range .homebrew_casks_desktop }}
-brew install --cask {{ . }}
+    "{{ . }}"
 {{- end }}
 {{- end }}
-{{- end }}
+)
+
+reconcile_brew_items "--formula" "formula" desired_formulas "$managed_formulas_file"
+reconcile_brew_items "--cask" "cask" desired_casks "$managed_casks_file"
 
 echo "Installing uv tools..."
 # Ensure uv is available
