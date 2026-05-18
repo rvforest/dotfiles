@@ -1,3 +1,17 @@
+uv_tools:
+  - copier
+  - httpie
+  - langgraph-cli
+  - llm
+  - nox
+  - pre-commit
+  - tldr
+  - watchgha
+
+llm_plugins:
+  - llm-cmd
+  - llm-openrouter
+
 homebrew_packages_core:
   # Essential CLI tools - always installed
   - bat # improved cat

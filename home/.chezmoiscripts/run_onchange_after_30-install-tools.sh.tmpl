@@ -130,7 +130,15 @@ uv tool uninstall --all
 uv tool install {{ . }}
 {{- end }}
 
+{{- if .llm_plugins }}
+echo "Installing llm plugins..."
+llm install{{- range .llm_plugins }} {{ . }}{{- end }}
+{{- end }}
+
 # Install nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+nvm_dir="${XDG_DATA_HOME:-$HOME/.local/share}/nvm"
+if [[ ! -s "$nvm_dir/nvm.sh" ]]; then
+    PROFILE=/dev/null curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+fi
 
 echo "Tool installation completed."

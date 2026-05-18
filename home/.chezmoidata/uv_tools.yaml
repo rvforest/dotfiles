@@ -1,8 +1,0 @@
-uv_tools:
-  - copier
-  - httpie
-  - langgraph-cli
-  - nox
-  - pre-commit
-  - tldr
-  - watchgha
