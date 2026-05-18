@@ -3,3 +3,10 @@
 function vim() {
   uv run nvim "$@"
 }
+
+# Source secrets loading function
+source "${XDG_CONFIG_HOME:-$HOME/.config}/direnv/lib/secrets.sh"
+
+function llm() {
+  OPENROUTER_KEY="$(load_secret keys/openrouter)" command llm "$@"
+}
