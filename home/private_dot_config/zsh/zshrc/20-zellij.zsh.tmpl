@@ -1,5 +1,6 @@
 # 20-zellij.zsh — zellij session logic
 {{- if not .is_mobile }}
+if [[ -z ${__DOTFILES_ZELLIJ_INIT_DONE-} ]]; then
 zellij_session=$(hostname)
 
 # do not auto-start or attach zellij when running inside VS Code terminals (as denoted by $VSCODE)
@@ -23,5 +24,7 @@ if [[ -z "$VSCODE" && -z "$ZELLIJ" ]]; then
     new-zellij
   fi
 
+fi
+typeset -g __DOTFILES_ZELLIJ_INIT_DONE=1
 fi
 {{- end }}

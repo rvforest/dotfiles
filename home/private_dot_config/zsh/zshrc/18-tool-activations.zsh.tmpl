@@ -4,7 +4,7 @@
 # Execution of commands in zvm_after_init_commands will be
 # delayed until after zsh vi mode initializes to prevent
 # keymap conflicts.
-zvm_after_init_commands=()
+typeset -gUa zvm_after_init_commands
 
 # Initialize homebrew environment
 if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
@@ -19,4 +19,7 @@ if command -v atuin >/dev/null 2>&1; then
     zvm_after_init_commands+=('eval "$(atuin init zsh)"')
 fi
 {{- end }}
-eval "$(zoxide init zsh)"
+if [[ -z ${__DOTFILES_ZOXIDE_INIT_DONE-} ]]; then
+    eval "$(zoxide init zsh)"
+    typeset -g __DOTFILES_ZOXIDE_INIT_DONE=1
+fi
