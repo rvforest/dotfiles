@@ -10,3 +10,74 @@ source "${XDG_CONFIG_HOME:-$HOME/.config}/direnv/lib/secrets.sh"
 function llm() {
   OPENROUTER_KEY="$(load_secret keys/openrouter)" command llm "$@"
 }
+
+
+function please() {
+  local include_explanation="false"
+
+  # Parse optional -e flag
+  if [[ "$1" == "-e" ]]; then
+    include_explanation="true"
+    shift # Remove the -e flag from the argument list
+  fi
+
+  # Guard clause: Ensure the user typed a request after the optional flag
+  if [ $# -eq 0 ]; then
+    echo "Error: Please describe what you want to do." >&2
+    return 1
+  fi
+
+  local user_goal="$*"
+  local sys_prompt
+  local user_prompt
+  local resp
+
+  # --- System Prompt with Dynamic Explanation Instructions ---
+  sys_prompt=$(cat << EOF
+You are an expert CLI assistant. Your task is to convert a natural language description of a desired shell operation into a structured JSON object.
+
+You must respond with a valid JSON object and absolutely nothing else. Do not wrap the JSON in markdown code blocks.
+
+The JSON object must contain exactly three keys:
+1. "explanation": If the user requested an explanation ($include_explanation), provide a concise, step-by-step breakdown of *how* the command works under the hood so the user can learn. Do not just repeat or rephrase the user's goal. If the user did not request an explanation ($include_explanation is false) or the command is basic, leave this as an empty string "".
+2. "warning": Use this field ONLY for severe, destructive risks (e.g., permanent deletion of data, killing processes, overwriting files) or if the command requires the user to manually replace placeholder text before running. If the command is purely informational, read-only, or safe, you MUST leave this as an empty string "". Do not provide generic safety advice or boilerplate warnings.
+3. "command": A string containing ONLY the raw, executable shell command. Pay absolute attention to sorting requests and flags. No markdown, no backticks, ready to be executed.
+EOF
+)
+
+  # --- User Prompt ---
+  user_prompt=$(cat << EOF
+Operating System/Shell: macOS/zsh
+
+<user_goal>
+$user_goal
+</user_goal>
+
+Respond strictly in the requested JSON format.
+EOF
+)
+
+  # Fetch from LLM
+  resp=$(llm "$user_prompt" -s "$sys_prompt")
+
+  # Extract fields using zsh here-strings
+  local explanation=$(jq -r '.explanation' <<< "$resp")
+  local warning=$(jq -r '.warning' <<< "$resp")
+  local cmd=$(jq -r '.command' <<< "$resp")
+
+  # 1. Print Technical Explanation (Dim / Cyan) if requested and present
+  if [[ -n "$explanation" && "$explanation" != "null" && "$explanation" != "" ]]; then
+    print -P "%F{cyan}How it works:%f $explanation"
+  fi
+
+  # 2. Print Warning (Bold Red) ONLY if it contains an actual risk (Warnings are never optional!)
+  if [[ -n "$warning" && "$warning" != "null" && "$warning" != "" ]]; then
+    print -P "%F{red}%B⚠️  WARNING:%b $warning%f"
+  fi
+
+  # 3. Clean Visual Confirmation
+  print -P "%F{green}➜ Command loaded below. Press [Enter] to run, or edit it:%f"
+
+  # 4. Push raw command directly to your cursor buffer
+  print -z "$cmd"
+}
