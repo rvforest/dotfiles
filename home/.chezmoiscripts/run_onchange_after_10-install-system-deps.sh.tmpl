@@ -39,9 +39,21 @@ desired_repo_probes=(
 {{- end }}
 )
 
+desired_repo_ids=(
+{{- range .apt.repos }}
+	"{{- if hasKey . "ids" }}{{ join " " (toStrings .ids) }}{{- end }}"
+{{- end }}
+)
+
 desired_packages=(
 {{- range .apt.packages }}
-	"{{ . }}"
+	"{{ .name }}"
+{{- end }}
+)
+
+desired_package_ids=(
+{{- range .apt.packages }}
+	"{{- if hasKey . "ids" }}{{ join " " (toStrings .ids) }}{{- end }}"
 {{- end }}
 )
 
@@ -96,9 +108,33 @@ repo_is_configured() {
 	grep -RqsF "$repo_probe" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null
 }
 
+item_supports_release() {
+	local supported_ids=$1
+
+	if [[ -z "$supported_ids" ]]; then
+		return 0
+	fi
+
+	for supported_id in $supported_ids; do
+		if [[ "${ID:-}" == "$supported_id" ]]; then
+			return 0
+		fi
+	done
+
+	return 1
+}
+
 collect_missing_packages() {
 	missing_packages=()
-	for package_name in "${desired_packages[@]}"; do
+	for package_index in "${!desired_packages[@]}"; do
+		package_name="${desired_packages[$package_index]}"
+		package_ids="${desired_package_ids[$package_index]}"
+
+		if ! item_supports_release "$package_ids"; then
+			echo "apt package skipped for distro ${ID:-unknown}: $package_name"
+			continue
+		fi
+
 		if is_package_installed "$package_name"; then
 			echo "apt package already installed: $package_name"
 		else
@@ -111,6 +147,12 @@ missing_repo_indexes=()
 for repo_index in "${!desired_repos[@]}"; do
 	repo_name="${desired_repos[$repo_index]}"
 	repo_probe="${desired_repo_probes[$repo_index]}"
+	repo_ids="${desired_repo_ids[$repo_index]}"
+
+	if ! item_supports_release "$repo_ids"; then
+		echo "apt repo skipped for distro ${ID:-unknown}: $repo_name"
+		continue
+	fi
 
 	if repo_is_configured "$repo_probe"; then
 		echo "apt repo already configured: $repo_name"

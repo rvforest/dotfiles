@@ -9,18 +9,28 @@ apt:
   supported_id_like:
     - debian
   repos:
+    # Repo entries are objects so distro-specific sources can be scoped with
+    # optional `ids` lists without forking the script logic.
     # `probe` is a stable string expected to appear in apt source files after
     # the repo is configured. It lets the script detect existing repos without
     # re-adding them on every run.
     - repo: ppa:git-core/ppa
       probe: ppa.launchpadcontent.net/git-core/ppa
+      # Ubuntu PPAs are not valid package sources for Debian/Raspberry Pi OS.
+      ids:
+        - ubuntu
   packages:
-    - locales
-    - build-essential
-    - software-properties-common
-    - unzip
-    - keyring
-    - pass
-    - gpg
-    - git
-    - zsh
+    # Package entries are objects with a required `name` and optional `ids`
+    # list for distro-specific packages.
+    - name: locales
+    - name: build-essential
+    - name: software-properties-common
+      # Only needed on Ubuntu, where the git-core PPA is configured.
+      ids:
+        - ubuntu
+    - name: unzip
+    - name: keyring
+    - name: pass
+    - name: gpg
+    - name: git
+    - name: zsh
