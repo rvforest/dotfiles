@@ -49,6 +49,12 @@ Use these flags when a change needs host-specific behavior.
 - For git behavior, start with `home/private_dot_config/private_git/config.tmpl` and any related key-signing script.
 - For editor behavior, check `home/private_dot_config/nvim/`.
 
+## Declarative Schema Notes
+
+- `home/.chezmoidata/apt.yaml` uses object entries for `repos` and `packages`; both can carry optional `ids` lists to scope Ubuntu-only behavior without branching the whole script.
+- `home/.chezmoidata/system_tools.yaml` is namespaced by tool manager (`homebrew`, `uv`, `llm`) and separates always-on versus desktop-only Homebrew sets.
+- `home/.chezmoidata/nupm_plugins.yaml` stores GitHub owner/repo slugs under `nupm.git_repos`; the owning script clones and updates those repos before reinstalling via nupm.
+
 ## Validation Workflow
 
 - For bash templates, validate rendered output with `chezmoi execute-template < path/to/script.tmpl | bash -n`.
