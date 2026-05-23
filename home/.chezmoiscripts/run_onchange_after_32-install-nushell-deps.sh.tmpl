@@ -1,7 +1,97 @@
-#!/usr/bin/env nu
+#!/usr/bin/env bash
+set -euo pipefail
 
-const nu_vendor_loc = "~/.local/share/nushell/vendor"
-const nupm_loc = $"($nu_vendor_loc)/nupm"
+if ! command -v nu >/dev/null 2>&1; then
+	echo "Nushell not found, skipping nushell package reconciliation."
+	exit 0
+fi
 
-use $"($nupm_loc)/nupm"  
-nupm install $nupm_loc --force --path
+nupm_module_path="${XDG_DATA_HOME:-$HOME/.local/share}/nushell/vendor/nupm/nupm.nu"
+if [[ ! -f "$nupm_module_path" ]]; then
+	echo "nupm module not found at $nupm_module_path, skipping nushell package reconciliation."
+	exit 0
+fi
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
+source_dir="${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles/nupm-sources"
+managed_repos_file="$state_dir/nupm-git-repos.txt"
+
+mkdir -p "$state_dir" "$source_dir"
+
+read_state_file() {
+	local file_path=$1
+	local array_name=$2
+	local -n items_ref="$array_name"
+
+	items_ref=()
+	if [[ -f "$file_path" ]]; then
+		mapfile -t items_ref < "$file_path"
+	fi
+}
+
+write_state_file() {
+	local file_path=$1
+	shift
+
+	if (($# > 0)); then
+		printf '%s\n' "$@" > "$file_path"
+	else
+		: > "$file_path"
+	fi
+}
+
+repo_checkout_path() {
+	local repo_slug=$1
+	local owner=${repo_slug%%/*}
+	local repo=${repo_slug#*/}
+
+	printf '%s/%s/%s' "$source_dir" "$owner" "$repo"
+}
+
+sync_repo_checkout() {
+	local repo_slug=$1
+	local checkout_path=$2
+	local repo_url="https://github.com/${repo_slug}.git"
+
+	mkdir -p "$(dirname "$checkout_path")"
+
+	if [[ -d "$checkout_path/.git" ]]; then
+		echo "Updating nupm source: $repo_slug"
+		git -C "$checkout_path" pull --ff-only
+	else
+		echo "Cloning nupm source: $repo_slug"
+		git clone "$repo_url" "$checkout_path"
+	fi
+}
+
+install_nupm_package() {
+	local checkout_path=$1
+
+	nu -c "use \"$nupm_module_path\" *; nupm install \"$checkout_path\" --force --path"
+}
+
+desired_git_repos=(
+{{- range .nupm.git_repos }}
+	"{{ . }}"
+{{- end }}
+)
+
+previously_managed_repos=()
+read_state_file "$managed_repos_file" previously_managed_repos
+
+declare -A desired_repo_set=()
+for repo_slug in "${desired_git_repos[@]}"; do
+	desired_repo_set["$repo_slug"]=1
+	checkout_path="$(repo_checkout_path "$repo_slug")"
+	sync_repo_checkout "$repo_slug" "$checkout_path"
+	echo "Installing nupm package from: $repo_slug"
+	install_nupm_package "$checkout_path"
+done
+
+for repo_slug in "${previously_managed_repos[@]}"; do
+	if [[ -z "${desired_repo_set[$repo_slug]+x}" ]]; then
+		echo "nupm package removed from config but not uninstalled automatically: $repo_slug"
+	fi
+done
+
+write_state_file "$managed_repos_file" "${desired_git_repos[@]}"

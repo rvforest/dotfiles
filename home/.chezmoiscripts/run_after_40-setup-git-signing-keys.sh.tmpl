@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 SSH_KEY_PATH="$HOME/.ssh/{{- .git_signing_key -}}"
 SSH_PUB_KEY_PATH="$SSH_KEY_PATH.pub"
@@ -8,12 +8,14 @@ SSH_KEY_COMMENT="{{- .git_signing_key_comment -}}"
 SIGNING_PRINCIPAL="{{- .email -}}"
 ALLOWED_SIGNERS_PATH="${XDG_CONFIG_HOME:-$HOME/.config}/git/allowed_signers"
 
+install -d -m 700 "$HOME/.ssh"
+
 # Check for existing signing SSH key
 if [[ -f "$SSH_KEY_PATH" ]]; then
     echo "A git signing SSH key already exists at $SSH_KEY_PATH. Skipping key creation."
 else
     # Ensure gh is installed before generating and uploading a new signing key.
-    if ! command -v gh &>/dev/null; then
+    if ! command -v gh >/dev/null 2>&1; then
       echo "gh CLI not found. Please install GitHub CLI and authenticate with 'gh auth login'."
       exit 1
     fi
@@ -34,9 +36,4 @@ if [[ -f "$SSH_PUB_KEY_PATH" ]]; then
     mkdir -p "$(dirname "$ALLOWED_SIGNERS_PATH")"
     SSH_PUB_KEY="$(awk '{print $1, $2}' "$SSH_PUB_KEY_PATH")"
     printf '%s namespaces="git" %s\n' "$SIGNING_PRINCIPAL" "$SSH_PUB_KEY" > "$ALLOWED_SIGNERS_PATH"
-    unset SSH_PUB_KEY
 fi
-
-unset SSH_PUB_KEY_PATH
-unset SIGNING_PRINCIPAL
-unset ALLOWED_SIGNERS_PATH

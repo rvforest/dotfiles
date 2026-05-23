@@ -1,2 +1,7 @@
-git:
-  - KamilKleina/git-aliases.nu
+nupm:
+  # GitHub owner/repo slugs. The nushell deps script clones each repository
+  # locally, updates it with git, then force-installs it via `nupm install --path`.
+  # Nupm does not currently expose an uninstall flow in its public README, so
+  # removals are surfaced but not destructively cleaned up from the nupm home.
+  git_repos:
+    - KamilKleina/git-aliases.nu

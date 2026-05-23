@@ -1,18 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Ensure homebrew is in PATH
-if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-elif [[ -d "$HOME/.linuxbrew" ]]; then
-    eval "$($HOME/.linuxbrew/bin/brew shellenv)"
-fi
+load_homebrew() {
+    if command -v brew >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    elif [[ -d "$HOME/.linuxbrew" ]]; then
+        eval "$("$HOME/.linuxbrew/bin/brew" shellenv)"
+    fi
+
+    command -v brew >/dev/null 2>&1
+}
 
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
 mkdir -p "$state_dir"
 
 managed_formulas_file="$state_dir/homebrew-formulas.txt"
 managed_casks_file="$state_dir/homebrew-casks.txt"
+managed_uv_tools_file="$state_dir/uv-tools.txt"
+managed_llm_plugins_file="$state_dir/llm-plugins.txt"
 
 read_state_file() {
     local file_path=$1
@@ -95,12 +104,116 @@ reconcile_brew_items() {
     write_state_file "$managed_file" "${desired_items_ref[@]}"
 }
 
+list_uv_tools() {
+    uv tool list | awk '/^[^-[:space:]]/ { print $1 }'
+}
+
+list_outdated_uv_tools() {
+    uv tool list --outdated | awk '/^[^-[:space:]]/ { print $1 }'
+}
+
+reconcile_uv_tools() {
+    local desired_array_name=$1
+    local managed_file=$2
+    local -n desired_items_ref="$desired_array_name"
+    local -a installed_items=()
+    local -a outdated_items=()
+    local -a previously_managed_items=()
+    declare -A desired_items_set=()
+    declare -A installed_items_set=()
+    declare -A outdated_items_set=()
+
+    mapfile -t installed_items < <(list_uv_tools)
+    mapfile -t outdated_items < <(list_outdated_uv_tools || true)
+    read_state_file "$managed_file" previously_managed_items
+
+    for item in "${desired_items_ref[@]}"; do
+        desired_items_set["$item"]=1
+    done
+
+    for item in "${installed_items[@]}"; do
+        installed_items_set["$item"]=1
+    done
+
+    for item in "${outdated_items[@]}"; do
+        outdated_items_set["$item"]=1
+    done
+
+    echo "Reconciling uv tools..."
+    for item in "${desired_items_ref[@]}"; do
+        if [[ -n "${installed_items_set[$item]+x}" ]]; then
+            if [[ -n "${outdated_items_set[$item]+x}" ]]; then
+                echo "Upgrading uv tool: $item"
+                uv tool upgrade "$item"
+            else
+                echo "uv tool already up to date: $item"
+            fi
+        else
+            echo "Installing uv tool: $item"
+            uv tool install "$item"
+        fi
+    done
+
+    for item in "${previously_managed_items[@]}"; do
+        if [[ -z "${desired_items_set[$item]+x}" && -n "${installed_items_set[$item]+x}" ]]; then
+            echo "Uninstalling removed uv tool: $item"
+            uv tool uninstall "$item"
+        fi
+    done
+
+    write_state_file "$managed_file" "${desired_items_ref[@]}"
+}
+
+list_llm_plugins() {
+    llm plugins | sed -n 's/^[[:space:]]*"name": "\([^"]*\)",$/\1/p'
+}
+
+reconcile_llm_plugins() {
+    local desired_array_name=$1
+    local managed_file=$2
+    local -n desired_items_ref="$desired_array_name"
+    local -a installed_items=()
+    local -a previously_managed_items=()
+    declare -A desired_items_set=()
+    declare -A installed_items_set=()
+
+    mapfile -t installed_items < <(list_llm_plugins)
+    read_state_file "$managed_file" previously_managed_items
+
+    for item in "${desired_items_ref[@]}"; do
+        desired_items_set["$item"]=1
+    done
+
+    for item in "${installed_items[@]}"; do
+        installed_items_set["$item"]=1
+    done
+
+    echo "Reconciling llm plugins..."
+    for item in "${desired_items_ref[@]}"; do
+        if [[ -n "${installed_items_set[$item]+x}" ]]; then
+            echo "llm plugin already installed: $item"
+        else
+            echo "Installing llm plugin: $item"
+            llm install "$item"
+        fi
+    done
+
+    for item in "${previously_managed_items[@]}"; do
+        if [[ -z "${desired_items_set[$item]+x}" && -n "${installed_items_set[$item]+x}" ]]; then
+            echo "Uninstalling removed llm plugin: $item"
+            llm uninstall -y "$item"
+        fi
+    done
+
+    write_state_file "$managed_file" "${desired_items_ref[@]}"
+}
+
 desired_formulas=(
-{{- range .homebrew_packages_core }}
+{{- range .homebrew.formulas.core }}
     "{{ . }}"
 {{- end }}
 {{- if not .is_mobile }}
-{{- range .homebrew_packages_desktop }}
+{{- range .homebrew.formulas.desktop }}
     "{{ . }}"
 {{- end }}
 {{- end }}
@@ -108,31 +221,43 @@ desired_formulas=(
 
 desired_casks=(
 {{- if not .is_mobile }}
-{{- range .homebrew_casks_desktop }}
+{{- range .homebrew.casks.desktop }}
     "{{ . }}"
 {{- end }}
 {{- end }}
 )
 
-reconcile_brew_items "--formula" "formula" desired_formulas "$managed_formulas_file"
-reconcile_brew_items "--cask" "cask" desired_casks "$managed_casks_file"
+desired_uv_tools=(
+{{- range .uv.tools }}
+    "{{ . }}"
+{{- end }}
+)
 
-echo "Installing uv tools..."
-# Ensure uv is available
-if ! command -v uv >/dev/null 2>&1; then
-    echo "Warning: uv not found, skipping uv tool installation"
-    exit 0
+desired_llm_plugins=(
+{{- range .llm.plugins }}
+    "{{ . }}"
+{{- end }}
+)
+
+if load_homebrew; then
+    reconcile_brew_items "--formula" "formula" desired_formulas "$managed_formulas_file"
+    reconcile_brew_items "--cask" "cask" desired_casks "$managed_casks_file"
+else
+    echo "Warning: Homebrew not found, skipping homebrew package reconciliation"
 fi
 
-uv tool uninstall --all
-{{/* Iterate over uv_tools and install each one. */}}
-{{- range .uv_tools }}
-uv tool install {{ . }}
-{{- end }}
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Warning: uv not found, skipping uv tool reconciliation"
+else
+    reconcile_uv_tools desired_uv_tools "$managed_uv_tools_file"
+fi
 
-{{- if .llm_plugins }}
-echo "Installing llm plugins..."
-llm install{{- range .llm_plugins }} {{ . }}{{- end }}
+{{- if .llm.plugins }}
+if command -v llm >/dev/null 2>&1; then
+    reconcile_llm_plugins desired_llm_plugins "$managed_llm_plugins_file"
+else
+    echo "Warning: llm not found, skipping llm plugin reconciliation"
+fi
 {{- end }}
 
 # Install nvm

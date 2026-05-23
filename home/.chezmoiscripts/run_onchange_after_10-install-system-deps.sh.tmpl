@@ -1,16 +1,151 @@
-{{- if or (eq .chezmoi.osRelease.name "debian") (eq .chezmoi.osRelease.name "ubuntu") -}}
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "installing system deps"
-sudo apt-get update -y
-sudo apt install -y build-essential
-sudo apt install -y software-properties-common
-sudo apt install -y unzip
-sudo apt install -y keyring
-sudo apt install -y pass
-sudo apt-get install -y gpg
+# This script bootstraps Debian-family packages from home/.chezmoidata/apt.yaml.
+# It intentionally does not try to manage every apt package on the system, only
+# the small set this dotfiles repo owns directly.
 
-sudo apt-add-repository -y ppa:git-core/ppa
-sudo apt-get install -y git
-{{- end -}}
+if [[ "$(uname -s)" != "Linux" ]] || ! command -v apt-get >/dev/null 2>&1; then
+	echo "apt bootstrap skipped: apt-get not available"
+	exit 0
+fi
+
+if [[ -r /etc/os-release ]]; then
+	# shellcheck disable=SC1091
+	. /etc/os-release
+fi
+
+supported_ids=(
+{{- range .apt.supported_ids }}
+	"{{ . }}"
+{{- end }}
+)
+
+supported_id_like=(
+{{- range .apt.supported_id_like }}
+	"{{ . }}"
+{{- end }}
+)
+
+desired_repos=(
+{{- range .apt.repos }}
+	"{{ .repo }}"
+{{- end }}
+)
+
+desired_repo_probes=(
+{{- range .apt.repos }}
+	"{{ .probe }}"
+{{- end }}
+)
+
+desired_packages=(
+{{- range .apt.packages }}
+	"{{ . }}"
+{{- end }}
+)
+
+# First prefer exact distro IDs, then fall back to distro families via ID_LIKE.
+release_supported=false
+for supported_id in "${supported_ids[@]}"; do
+	if [[ "${ID:-}" == "$supported_id" ]]; then
+		release_supported=true
+		break
+	fi
+done
+
+if [[ "$release_supported" != true ]]; then
+	release_like=" ${ID_LIKE:-} "
+	for supported_like in "${supported_id_like[@]}"; do
+		if [[ "$release_like" == *" $supported_like "* ]]; then
+			release_supported=true
+			break
+		fi
+	done
+fi
+
+if [[ "$release_supported" != true ]]; then
+	echo "apt bootstrap skipped: unsupported distro ${ID:-unknown}"
+	exit 0
+fi
+
+apt_cache_fresh=false
+
+is_package_installed() {
+	local package_name=$1
+
+	dpkg-query -W -f='${db:Status-Status}\n' "$package_name" 2>/dev/null | grep -qx 'installed'
+}
+
+# Avoid repeated `apt-get update` calls in the same run.
+ensure_apt_cache() {
+	if [[ "$apt_cache_fresh" != true ]]; then
+		sudo apt-get update -y
+		apt_cache_fresh=true
+	fi
+}
+
+repo_is_configured() {
+	local repo_probe=$1
+
+	if [[ -z "$repo_probe" ]]; then
+		return 1
+	fi
+
+	# Search apt source files for the repo's configured probe string.
+	grep -RqsF "$repo_probe" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null
+}
+
+collect_missing_packages() {
+	missing_packages=()
+	for package_name in "${desired_packages[@]}"; do
+		if is_package_installed "$package_name"; then
+			echo "apt package already installed: $package_name"
+		else
+			missing_packages+=("$package_name")
+		fi
+	done
+}
+
+missing_repo_indexes=()
+for repo_index in "${!desired_repos[@]}"; do
+	repo_name="${desired_repos[$repo_index]}"
+	repo_probe="${desired_repo_probes[$repo_index]}"
+
+	if repo_is_configured "$repo_probe"; then
+		echo "apt repo already configured: $repo_name"
+	else
+		missing_repo_indexes+=("$repo_index")
+	fi
+done
+
+if (( ${#missing_repo_indexes[@]} > 0 )) && ! command -v apt-add-repository >/dev/null 2>&1; then
+	if ! is_package_installed software-properties-common; then
+		echo "installing software-properties-common to manage apt repositories"
+		ensure_apt_cache
+		sudo apt-get install -y software-properties-common
+	fi
+fi
+
+repos_added=false
+for repo_index in "${missing_repo_indexes[@]}"; do
+	repo_name="${desired_repos[$repo_index]}"
+	echo "adding apt repo: $repo_name"
+	sudo apt-add-repository -y "$repo_name"
+	repos_added=true
+done
+
+if [[ "$repos_added" == true ]]; then
+	apt_cache_fresh=false
+fi
+
+collect_missing_packages
+
+if (( ${#missing_packages[@]} == 0 )); then
+	echo "apt packages already installed"
+	exit 0
+fi
+
+ensure_apt_cache
+echo "installing apt packages: ${missing_packages[*]}"
+sudo apt-get install -y "${missing_packages[@]}"

@@ -1,6 +1,19 @@
 apt:
+  # Exact /etc/os-release IDs where this apt bootstrap should run.
+  supported_ids:
+    - ubuntu
+    - debian
+    - raspbian
+  # Fallback distro families from /etc/os-release ID_LIKE for derivatives.
+  # This keeps Debian-family distros working even when their exact ID differs.
+  supported_id_like:
+    - debian
   repos:
-    - ppa:git-core/ppa
+    # `probe` is a stable string expected to appear in apt source files after
+    # the repo is configured. It lets the script detect existing repos without
+    # re-adding them on every run.
+    - repo: ppa:git-core/ppa
+      probe: ppa.launchpadcontent.net/git-core/ppa
   packages:
     - locales
     - build-essential
@@ -10,3 +23,4 @@ apt:
     - pass
     - gpg
     - git
+    - zsh

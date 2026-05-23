@@ -5,9 +5,9 @@ gh_host=github.com
 if ! gh auth status --hostname $gh_host &> /dev/null; then
   echo "Logging into GitHub"
   gh auth login \
-    --hostname $gh_host
-    --git-protocol https
-    --scopes admin:ssh_signing_key
+    --hostname "$gh_host" \
+    --git-protocol https \
+    --scopes admin:ssh_signing_key \
     --web
 fi
 
