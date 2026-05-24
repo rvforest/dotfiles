@@ -21,6 +21,7 @@ homebrew:
       - shfmt # Shell script formatter
       - starship # Shell prompt
       - uv # Python package manager
+      - vim  # text editor
       - yq # like jq for yaml
       - zoxide # a smarter cd command
 
