@@ -37,7 +37,6 @@
 {{-     $is_wsl = true -}}
 {{-   end -}}
 
-
 [data]
     name = "Robert Forest"
     email = "rvforest@gmail.com"
@@ -51,5 +50,13 @@
     git_signing_key = "id_git_signing"
     git_signing_key_comment = "git signing key"
 
+[data.xdg]
+data_home = "{{ .chezmoi.homeDir }}/.local/share"
+config_home = "{{ .chezmoi.homeDir }}/.config"
+cache_home = "{{ .chezmoi.homeDir }}/.cache"
+state_home = "{{ .chezmoi.homeDir }}/.local/state"
+runtime_dir = "{{ .chezmoi.homeDir }}/.local/run"
+
 [github]
     refreshPeriod = "12h"
+

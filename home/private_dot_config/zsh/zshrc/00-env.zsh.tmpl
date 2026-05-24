@@ -2,10 +2,10 @@
 # 00-env.zsh — general environment variables (non-PATH)
 
 # XDG Base Directories
-export XDG_CONFIG_HOME="$HOME/.config"
-export XDG_CACHE_HOME="$HOME/.cache"
-export XDG_DATA_HOME="$HOME/.local/share"
-export XDG_STATE_HOME="$HOME/.local/state"
+export XDG_DATA_HOME="{{ .xdg.data_home }}"
+export XDG_CONFIG_HOME="{{ .xdg.config_home }}"
+export XDG_CACHE_HOME="{{ .xdg.cache_home }}"
+export XDG_STATE_HOME="{{ .xdg.state_home }}"
 
 # oh-my-zsh install location
 export ZSH="$XDG_CONFIG_HOME/zsh/oh-my-zsh"
