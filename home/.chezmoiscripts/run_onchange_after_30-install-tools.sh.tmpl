@@ -1,6 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Colors for high-visibility warnings/summaries.
+if [[ -t 1 ]]; then
+    color_yellow=$'\033[33m'
+    color_red=$'\033[31m'
+    color_bold=$'\033[1m'
+    color_reset=$'\033[0m'
+else
+    color_yellow=''
+    color_red=''
+    color_bold=''
+    color_reset=''
+fi
+
+declare -a install_warnings=()
+
+warn() {
+    local message=$1
+    printf '%sWarning:%s %s\n' "$color_yellow" "$color_reset" "$message" >&2
+    install_warnings+=("$message")
+}
+
+print_warning_summary() {
+    if ((${#install_warnings[@]} == 0)); then
+        return 0
+    fi
+
+    printf '\n%s%sTool setup completed with warnings:%s\n' "$color_red" "$color_bold" "$color_reset" >&2
+    for warning in "${install_warnings[@]}"; do
+        printf '%s  - %s%s\n' "$color_red" "$warning" "$color_reset" >&2
+    done
+}
+
 load_homebrew() {
     if command -v brew >/dev/null 2>&1; then
         return 0
@@ -84,20 +116,26 @@ reconcile_brew_items() {
         if [[ -n "${installed_items_set[$item]+x}" ]]; then
             if [[ -n "${outdated_items_set[$item]+x}" ]]; then
                 echo "Upgrading $label: $item"
-                brew upgrade "${brew_scope_args[@]}" "$item"
+                if ! brew upgrade "${brew_scope_args[@]}" "$item"; then
+                    warn "Failed to upgrade $label '$item'"
+                fi
             else
                 echo "$label already up to date: $item"
             fi
         else
             echo "Installing $label: $item"
-            brew install "${brew_scope_args[@]}" "$item"
+            if ! brew install "${brew_scope_args[@]}" "$item"; then
+                warn "Failed to install $label '$item'"
+            fi
         fi
     done
 
     for item in "${previously_managed_items[@]}"; do
         if [[ -z "${desired_items_set[$item]+x}" && -n "${installed_items_set[$item]+x}" ]]; then
             echo "Uninstalling removed $label: $item"
-            brew uninstall "${brew_scope_args[@]}" "$item"
+            if ! brew uninstall "${brew_scope_args[@]}" "$item"; then
+                warn "Failed to uninstall removed $label '$item'"
+            fi
         fi
     done
 
@@ -144,20 +182,26 @@ reconcile_uv_tools() {
         if [[ -n "${installed_items_set[$item]+x}" ]]; then
             if [[ -n "${outdated_items_set[$item]+x}" ]]; then
                 echo "Upgrading uv tool: $item"
-                uv tool upgrade "$item"
+                if ! uv tool upgrade "$item"; then
+                    warn "Failed to upgrade uv tool '$item'"
+                fi
             else
                 echo "uv tool already up to date: $item"
             fi
         else
             echo "Installing uv tool: $item"
-            uv tool install "$item"
+            if ! uv tool install "$item"; then
+                warn "Failed to install uv tool '$item'"
+            fi
         fi
     done
 
     for item in "${previously_managed_items[@]}"; do
         if [[ -z "${desired_items_set[$item]+x}" && -n "${installed_items_set[$item]+x}" ]]; then
             echo "Uninstalling removed uv tool: $item"
-            uv tool uninstall "$item"
+            if ! uv tool uninstall "$item"; then
+                warn "Failed to uninstall removed uv tool '$item'"
+            fi
         fi
     done
 
@@ -194,14 +238,18 @@ reconcile_llm_plugins() {
             echo "llm plugin already installed: $item"
         else
             echo "Installing llm plugin: $item"
-            llm install "$item"
+            if ! llm install "$item"; then
+                warn "Failed to install llm plugin '$item'"
+            fi
         fi
     done
 
     for item in "${previously_managed_items[@]}"; do
         if [[ -z "${desired_items_set[$item]+x}" && -n "${installed_items_set[$item]+x}" ]]; then
             echo "Uninstalling removed llm plugin: $item"
-            llm uninstall -y "$item"
+            if ! llm uninstall -y "$item"; then
+                warn "Failed to uninstall removed llm plugin '$item'"
+            fi
         fi
     done
 
@@ -243,11 +291,11 @@ if load_homebrew; then
     reconcile_brew_items "--formula" "formula" desired_formulas "$managed_formulas_file"
     reconcile_brew_items "--cask" "cask" desired_casks "$managed_casks_file"
 else
-    echo "Warning: Homebrew not found, skipping homebrew package reconciliation"
+    warn "Homebrew not found, skipping homebrew package reconciliation"
 fi
 
 if ! command -v uv >/dev/null 2>&1; then
-    echo "Warning: uv not found, skipping uv tool reconciliation"
+    warn "uv not found, skipping uv tool reconciliation"
 else
     reconcile_uv_tools desired_uv_tools "$managed_uv_tools_file"
 fi
@@ -256,14 +304,17 @@ fi
 if command -v llm >/dev/null 2>&1; then
     reconcile_llm_plugins desired_llm_plugins "$managed_llm_plugins_file"
 else
-    echo "Warning: llm not found, skipping llm plugin reconciliation"
+    warn "llm not found, skipping llm plugin reconciliation"
 fi
 {{- end }}
 
 # Install nvm
 nvm_dir="${XDG_DATA_HOME:-$HOME/.local/share}/nvm"
 if [[ ! -s "$nvm_dir/nvm.sh" ]]; then
-    PROFILE=/dev/null curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+    if ! PROFILE=/dev/null curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash; then
+        warn "Failed to install nvm"
+    fi
 fi
 
 echo "Tool installation completed."
+print_warning_summary
