@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+set -euo pipefail
+
+mkdir -p "{{ .xdg.data_home }}/gnupg"
+chmod 700 "{{ .xdg.data_home }}/gnupg"
+mkdir -p "{{ .xdg.data_home }}/nvm"
