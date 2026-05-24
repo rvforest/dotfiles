@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target_locale="en_US.UTF-8"
+
+available_locales="$(locale -a 2>/dev/null || true)"
+if grep -Eiq '^en_US\.(utf8|utf-8)$' <<<"$available_locales"; then
+  echo "${target_locale} locale already available."
+  exit 0
+fi
+
+if ! command -v locale-gen >/dev/null 2>&1; then
+  echo "locale-gen unavailable, skipping ${target_locale} generation."
+  exit 0
+fi
+
+if [ -f /etc/locale.gen ] && ! grep -Eq '^[#[:space:]]*en_US\.UTF-8[[:space:]]+UTF-8$' /etc/locale.gen; then
+  echo "Enabling ${target_locale} in /etc/locale.gen..."
+  sudo sh -c "printf '\nen_US.UTF-8 UTF-8\n' >> /etc/locale.gen"
+fi
+
+echo "${target_locale} locale missing, generating..."
+sudo locale-gen "${target_locale}"
+
+available_locales="$(locale -a 2>/dev/null || true)"
+if ! grep -Eiq '^en_US\.(utf8|utf-8)$' <<<"$available_locales"; then
+  echo "${target_locale} was not generated successfully; skipping update-locale."
+  exit 0
+fi
+
+if command -v update-locale >/dev/null 2>&1; then
+  sudo update-locale LANG="${target_locale}"
+fi
