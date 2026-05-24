@@ -29,7 +29,7 @@ apt:
       ids:
         - ubuntu
     - name: unzip
-    - name: keyring
+    - name: python3-keyring
     - name: pass
     - name: gpg
     - name: git

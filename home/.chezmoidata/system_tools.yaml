@@ -3,7 +3,6 @@ homebrew:
     # Essential CLI tools that this repo expects everywhere Homebrew is used.
     core:
       - bat # improved cat
-      - choose # human-friendly alternative to cut
       - coreutils # GNU core utilities
       - delta # improved diff
       - direnv # directory env vars
@@ -33,7 +32,6 @@ homebrew:
       - atuin # shell history (can be resource intensive)
       - bat-extras # Extensions for bat (diff, grep, man, etc)
       - btop # improved top (resource monitoring)
-      - colima # Container runtime
       - copier # Project templating tool
       - difftastic # Structural diff tool for code
       - docker # Docker command-line client
