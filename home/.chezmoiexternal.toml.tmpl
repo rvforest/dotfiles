@@ -62,23 +62,35 @@
     refreshPeriod = "168h"
 
 
-{{- /* trufflehog prebuilt release for Linux arm64 only */}}
+{{- /* trufflehog prebuilt release for supported Linux architectures */}}
 {{- $th := gitHubLatestRelease "trufflesecurity/trufflehog" }}
-{{- if eq .chezmoi.os "linux" }}
+{{- if and (eq .chezmoi.os "linux") (or (eq .chezmoi.arch "amd64") (eq .chezmoi.arch "arm64")) }}
 [".local/bin/trufflehog"]
     type = "archive-file"
-    url = "https://github.com/trufflesecurity/trufflehog/releases/download/{{ $th.TagName }}/trufflehog_{{ trimPrefix "v" $th.TagName }}_linux_arm64.tar.gz"
+    url = "https://github.com/trufflesecurity/trufflehog/releases/download/{{ $th.TagName }}/trufflehog_{{ trimPrefix "v" $th.TagName }}_linux_{{ .chezmoi.arch }}.tar.gz"
     executable = true
     path = "trufflehog"
 {{- end }}
 
 
 {{- $dotenvx_release := gitHubLatestRelease "dotenvx/dotenvx" }}
+{{- if eq .chezmoi.os "linux" }}
+{{-   $dotenvx_arch := "" }}
+{{-   if eq .chezmoi.arch "amd64" }}
+{{-     $dotenvx_arch = "amd64" }}
+{{-   else if eq .chezmoi.arch "arm64" }}
+{{-     $dotenvx_arch = "aarch64" }}
+{{-   else if eq .chezmoi.arch "arm" }}
+{{-     $dotenvx_arch = "armv7l" }}
+{{-   end }}
+{{-   if ne $dotenvx_arch "" }}
 [".local/bin/dotenvx"]
     type = "archive-file"
-    url = "https://github.com/dotenvx/dotenvx/releases/download/{{ $dotenvx_release.TagName }}/dotenvx-{{ trimPrefix "v" $dotenvx_release.TagName }}-linux-aarch64.tar.gz"
+    url = "https://github.com/dotenvx/dotenvx/releases/download/{{ $dotenvx_release.TagName }}/dotenvx-{{ trimPrefix "v" $dotenvx_release.TagName }}-linux-{{ $dotenvx_arch }}.tar.gz"
     executable = true
     path = "./dotenvx"
+{{-   end }}
+{{- end }}
 
 
 {{- if .is_wsl }}

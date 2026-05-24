@@ -54,11 +54,10 @@
 	allowedSignersFile = ~/.config/git/allowed_signers
 
 # Credential helpers
-{{- $gh_bin := lookPath "gh" }}
 [credential "https://github.com"]
 	helper = 
-	helper = !{{- $gh_bin }} auth git-credential
+	helper = !gh auth git-credential
 
 [credential "https://gist.github.com"]
 	helper = 
-	helper = !{{- $gh_bin }} auth git-credential
+	helper = !gh auth git-credential
