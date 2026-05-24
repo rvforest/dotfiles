@@ -5,6 +5,8 @@ set -euo pipefail
 # It intentionally does not try to manage every apt package on the system, only
 # the small set this dotfiles repo owns directly.
 
+echo "Installing apt packages..."
+
 if [[ "$(uname -s)" != "Linux" ]] || ! command -v apt-get >/dev/null 2>&1; then
 	echo "apt bootstrap skipped: apt-get not available"
 	exit 0
