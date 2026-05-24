@@ -115,7 +115,7 @@ if ! shopt -oq posix; then
   fi
 fi
 
-. "$HOME/.local/bin/env"
+export LANG=C.UTF-8
 
 
 [[ -f ~/.config/bash/bash-preexec.sh ]] && source ~/.config/bash/bash-preexec.sh
