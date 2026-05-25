@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# run_onchange_after_setup-gpg-and-pass.sh.tmpl
+
+set -euo pipefail
+
+NAME="{{ .name }}"
+EMAIL="{{ .email }}"
+STORE_DIR="{{ .xdg.data_home }}/pass"
+
+export PASSWORD_STORE_DIR="$STORE_DIR"
+
+# Dependency check
+for cmd in gpg pass; do
+  if ! command -v "$cmd" &>/dev/null; then
+    echo "Error: '$cmd' is not installed. Install it before running this script."
+    exit 1
+  fi
+done
+
+# GPG key setup
+if gpg --list-secret-keys --keyid-format LONG | grep -q sec; then
+  echo "GPG key already exists, skipping creation."
+else
+  read -r -p "Key expiry in days [90]: " EXPIRY
+  EXPIRY="${EXPIRY:-90}"
+
+  echo ""
+  echo "=== GPG Key Creation ==="
+  echo "Name:   ${NAME}"
+  echo "Email:  ${EMAIL}"
+  echo "Expiry: ${EXPIRY} days"
+  echo ""
+
+  # Create primary ed25519 key (certify + sign)
+  gpg --quick-gen-key "${NAME} <${EMAIL}>" ed25519 cert "${EXPIRY}d"
+
+  # Add cv25519 encryption subkey (required for pass)
+  FINGERPRINT=$(gpg --list-secret-keys --with-colons "${EMAIL}" \
+    | grep '^fpr' \
+    | head -1 \
+    | cut -d: -f10)
+
+  gpg --quick-add-key "$FINGERPRINT" cv25519 encr "${EXPIRY}d"
+
+  echo "GPG key created successfully."
+fi
+
+# Extract key ID
+KEY_ID=$(gpg --list-secret-keys --keyid-format LONG \
+  | grep sec \
+  | head -1 \
+  | awk '{print $2}' \
+  | cut -d'/' -f2)
+
+if [ -z "$KEY_ID" ]; then
+  echo "Error: Could not extract GPG key ID. Aborting."
+  exit 1
+fi
+
+echo "Using GPG key: $KEY_ID"
+
+# pass initialization
+if [ -f "${STORE_DIR}/.gpg-id" ]; then
+  echo "pass already initialized at ${STORE_DIR}, skipping."
+else
+  echo ""
+  echo "=== Initializing pass ==="
+  echo "Store location: ${STORE_DIR}"
+  mkdir -p "$STORE_DIR"
+  pass init "$KEY_ID"
+  echo "pass initialized successfully."
+fi
+
+echo ""
+echo "=== Setup complete ==="
+echo "Ensure your shell config contains:"
+echo ""
+echo '  export PASSWORD_STORE_DIR="{{ .xdg.data_home }}/pass"'
+echo ""
+

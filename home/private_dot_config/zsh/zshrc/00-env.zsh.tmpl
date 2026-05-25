@@ -40,6 +40,9 @@ export NPM_CONFIG_CACHE="$XDG_CACHE_HOME/npm"
 # For global installs (optional, set in npmrc):
 # prefix=$XDG_DATA_HOME/npm
 
+# pass XDG compliance
+export PASSWORD_STORE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pass"
+
 # llm
 export LLM_MODEL="openrouter/meta-llama/llama-4-scout"
 
