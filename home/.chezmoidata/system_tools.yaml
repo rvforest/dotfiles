@@ -14,6 +14,7 @@ homebrew:
       - fzf # fuzzy matching
       - gh # GitHub CLI
       - jq # JSON processor
+      - lazygit # git tui
       - keychain # enables one ssh-agent per system
       - neovim # Modern vim
       - nushell # Cross-platform data first shell
