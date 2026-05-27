@@ -7,6 +7,7 @@ homebrew:
       - delta # improved diff
       - direnv # directory env vars
       - duf # disk free. df alternative
+      - dust # du alternative
       - eza # improved ls
       - fd # improved find
       - fzf # fuzzy matching
