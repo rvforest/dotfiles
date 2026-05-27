@@ -13,6 +13,7 @@ homebrew:
       - fx # json viewer
       - fzf # fuzzy matching
       - gh # GitHub CLI
+      - gum # tool for making interactive shell scripts
       - jq # JSON processor
       - lazygit # git tui
       - keychain # enables one ssh-agent per system
