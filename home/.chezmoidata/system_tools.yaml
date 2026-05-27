@@ -45,6 +45,7 @@ homebrew:
       - rust # Rust language
       - yamllint # yaml linter
       - yamlfmt # yaml formatter
+      - yazi # file browser
       - yj # Convert between YAML, TOML, JSON, and HCL
       - zellij # terminal workspace manager
       - usage # usage CLI tool
