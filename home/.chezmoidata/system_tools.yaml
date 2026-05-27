@@ -26,6 +26,7 @@ homebrew:
       - shellcheck # Shell script linter
       - shfmt # Shell script formatter
       - starship # Shell prompt
+      - tealdeer # fast tldr replacement
       - uv # Python package manager
       - vim  # text editor
       - yq # like jq for yaml
@@ -67,7 +68,6 @@ uv:
     - llm
     - nox
     - pre-commit
-    - tldr
     - watchgha
 
 llm:
