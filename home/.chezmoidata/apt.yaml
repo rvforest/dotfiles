@@ -33,4 +33,5 @@ apt:
     - name: pass
     - name: gpg
     - name: git
+    - name: mosh
     - name: zsh
