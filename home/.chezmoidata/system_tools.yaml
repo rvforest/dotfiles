@@ -10,6 +10,7 @@ homebrew:
       - dust # du alternative
       - eza # improved ls
       - fd # improved find
+      - fnm  # nvm alternative
       - fx # json viewer
       - fzf # fuzzy matching
       - gh # GitHub CLI
