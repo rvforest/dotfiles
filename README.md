@@ -3,6 +3,9 @@
 My personal development environment, managed with chezmoi. This is a public
 backup of my configuration, not a supported setup for other users.
 
+The [`decide` command](docs/decide.md) calls OpenRouter decision models from shell
+pipelines using the existing pass-managed API key.
+
 ## Bootstrap targets and prerequisites
 
 The bootstrap targets Ubuntu/Debian, including Ubuntu on WSL 2 and Raspberry Pi

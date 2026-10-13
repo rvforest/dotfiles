@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+# Evaluate stdin using OpenRouter's Decisions API.
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: decide [OPTIONS] 'Yes/no question' < state
+       decide --questions FILE [OPTIONS] < state
+
+Options:
+  -q, --questions FILE    JSON object of named questions instead of a direct question.
+  -m, --model ID          OpenRouter model ID (default: typesafe/jev-1.13).
+      --state-format FMT  text (default) or json; JSON is one string/object/array.
+      --timeout SECONDS   Positive integer request timeout (default: 60).
+      --dry-run           Print the request without loading a key or calling API.
+  -h, --help              Show this help.
+
+Reads one state from stdin. A JSON array is one state, not a batch.
+FILE contains the questions object itself, not a complete API request.
+A direct question creates one noul question named "answer". Use -- before a
+question starting with a dash. Direct questions and --questions are exclusive.
+Success writes the full JSON response to stdout. Errors go to stderr.
+Exit: 0 success; 2 invalid arguments/input; 1 setup/response failure;
+      curl's exit status for HTTP/transport failures (22 for HTTP errors).
+Authentication: load_secret keys/openrouter from your direnv secrets helper.
+EOF
+}
+
+fail() {
+    printf 'decide: %s\n' "$1" >&2
+    exit "${2:-2}"
+}
+
+model=typesafe/jev-1.13
+questions_file=
+state_format=text
+timeout=60
+dry_run=false
+question=
+question_supplied=false
+while (($#)); do
+    case "$1" in
+        -q|--questions|-m|--model|--state-format|--timeout)
+            (($# >= 2)) || fail "Missing value for $1"
+            [[ -n $2 ]] || fail "Empty value for $1"
+            case "$1" in
+                -q|--questions) questions_file=$2 ;;
+                -m|--model) model=$2 ;;
+                --state-format) state_format=$2 ;;
+                --timeout) timeout=$2 ;;
+            esac
+            shift 2
+            ;;
+        --dry-run) dry_run=true; shift ;;
+        -h|--help) usage; exit 0 ;;
+        --)
+            shift
+            [[ $# == 1 && $question_supplied == false ]] || fail 'Supply exactly one direct question'
+            question=$1; question_supplied=true; shift
+            ;;
+        -*) fail "Unknown option: $1 (see --help)" ;;
+        *)
+            [[ $question_supplied == false ]] || fail 'Supply exactly one direct question'
+            question=$1; question_supplied=true; shift
+            ;;
+    esac
+done
+
+if $question_supplied; then
+    [[ -z $questions_file ]] || fail 'Use a direct question or --questions, not both'
+    [[ $question =~ [^[:space:]] ]] || fail 'Question must not be blank'
+else
+    [[ -n $questions_file ]] || fail 'Supply a direct question or --questions FILE (see --help)'
+    [[ -r $questions_file ]] || fail "Cannot read questions file: $questions_file"
+fi
+[[ $questions_file != - ]] || fail 'stdin is reserved for state; use a questions file'
+[[ $state_format == text || $state_format == json ]] || fail '--state-format must be text or json'
+[[ $timeout =~ ^[1-9][0-9]*$ ]] || fail '--timeout must be a positive integer'
+[[ ! -t 0 ]] || fail 'Supply state through stdin using a pipe or < file'
+command -v jq >/dev/null || fail 'jq is required' 1
+
+umask 077
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/decide.XXXXXXXX")
+trap 'rm -rf -- "$work_dir"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+if $question_supplied; then
+    jq -n --arg question "$question" \
+        '{answer: {type: "noul", instructions: $question}}' > "$work_dir/questions.json"
+    questions_file="$work_dir/questions.json"
+fi
+
+# Raw stdin preserves trailing newlines. fromjson requires exactly one JSON value.
+# Validate the common question shape; model-specific limits remain API-owned.
+if ! jq -eRs --arg model "$model" --arg format "$state_format" \
+    --slurpfile questions "$questions_file" '
+    def nonempty: type == "string" and test("\\S");
+    def valid_question:
+        type == "object" and (.instructions | nonempty) and
+        (if .type == "noul" then
+            (has("criteria") | not) or
+            (.criteria | type == "object" and keys == ["false", "true"] and all(.[]; nonempty))
+         elif .type == "choice" then
+            (.criteria | type == "object" and length >= 2 and
+                all(to_entries[]; (.key | nonempty) and (.value == null or (.value | nonempty))))
+         elif .type == "score" then
+            (.criteria | type == "array" and length >= 2 and all(.[]; nonempty))
+         else false end);
+    if ($questions | length) != 1 then error("Questions file must contain exactly one JSON object")
+    elif ($questions[0] | type != "object" or length == 0) then error("Questions must be a nonempty object")
+    elif ($questions[0] | all(to_entries[]; (.key | nonempty) and (.value | valid_question)) | not)
+        then error("Each question needs instructions and a noul/choice/score type with appropriate criteria")
+    else . end |
+    (if $format == "json" then fromjson else . end) as $state |
+    if ($state | type) as $t | (["string", "object", "array"] | index($t)) == null
+        then error("State must be a string, object, or array")
+    elif ($state | type == "string" and (nonempty | not)) then error("State must not be blank")
+    else {model: $model, state: $state, questions: $questions[0]} end
+    ' > "$work_dir/request.json"; then
+    fail 'Invalid state or questions; no request sent'
+fi
+
+if $dry_run; then
+    cat "$work_dir/request.json"
+    exit 0
+fi
+
+command -v curl >/dev/null || fail 'curl is required' 1
+secrets_helper="${XDG_CONFIG_HOME:-$HOME/.config}/direnv/lib/secrets.sh"
+[[ -r $secrets_helper ]] || fail "Cannot read secrets helper: $secrets_helper" 1
+# shellcheck source=home/private_dot_config/direnv/lib/secrets.sh
+source "$secrets_helper"
+# The shared helper expects an optional second argument; it is not nounset-safe.
+if ! openrouter_key=$(load_secret keys/openrouter ''); then
+    fail 'Could not load keys/openrouter from pass' 1
+fi
+[[ -n $openrouter_key && $openrouter_key != *$'\n'* && $openrouter_key != *$'\r'* ]] ||
+    fail 'OpenRouter key must be a nonempty single line' 1
+# Keep the key out of curl argv and use a private, short-lived header file.
+printf 'Authorization: Bearer %s\n' "$openrouter_key" > "$work_dir/headers"
+unset openrouter_key
+
+# Disable curlrc so user defaults cannot change this request. No automatic retry.
+if curl --disable --silent --show-error --fail-with-body \
+    --connect-timeout 10 --max-time "$timeout" \
+    --header "@$work_dir/headers" --header 'Content-Type: application/json' \
+    --data-binary "@$work_dir/request.json" --output "$work_dir/response.json" \
+    https://openrouter.ai/api/alpha/decisions; then
+    if ! jq -es 'length == 1 and (.[0] | type == "object" and
+        (has("error") | not) and (.answers | type == "object"))' \
+        "$work_dir/response.json" >/dev/null; then
+        cat "$work_dir/response.json" >&2
+        fail 'Invalid Decisions response' 1
+    fi
+    cat "$work_dir/response.json"
+    printf '\n'
+else
+    curl_status=$?
+    if [[ -s $work_dir/response.json ]]; then
+        cat "$work_dir/response.json" >&2
+        printf '\n' >&2
+    fi
+    exit "$curl_status"
+fi
