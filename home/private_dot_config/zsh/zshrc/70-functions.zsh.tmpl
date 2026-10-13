@@ -8,7 +8,12 @@ function nvim() {
 source "${XDG_CONFIG_HOME:-$HOME/.config}/direnv/lib/secrets.sh"
 
 function llm() {
-  OPENROUTER_KEY="$(load_secret keys/openrouter)" command llm "$@"
+  local openrouter_key
+  if ! openrouter_key="$(load_secret keys/openrouter)"; then
+    print -r -- "Error: Could not load keys/openrouter from pass." >&2
+    return 1
+  fi
+  OPENROUTER_KEY="$openrouter_key" command llm "$@"
 }
 
 
