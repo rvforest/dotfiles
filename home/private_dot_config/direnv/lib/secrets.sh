@@ -20,6 +20,8 @@ load_secret() {
       return 0
     fi
   fi
-  unset "$var"
+  if [[ -n $var ]]; then
+    unset "$var"
+  fi
   return 1
 }
