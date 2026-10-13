@@ -1,13 +1,37 @@
-# Warn if any GPG key or subkey expires within 30 days
+# Warn about our own secret keys, grouping primary/subkey expiry by identity.
 if command -v gpg >/dev/null 2>&1; then
-  gpg --list-keys --with-colons "{{- .email -}}" 2>/dev/null | awk -F: '
-    /^[ps]ub:/ {
-      key = $5
-      expires_at = $7
-      if (expires_at != "" && expires_at < systime() + 2592000) {
-        print "\033[1;33mWarning: GPG key " key " expires within 30 days!\033[0m"
+  gpg --list-secret-keys --list-options show-unusable-subkeys --with-colons "{{- .email -}}" 2>/dev/null | awk -F: '
+    BEGIN { now = systime() }
+    function warn() {
+      if (expires_at && expires_at <= now + 2592000) {
+        when = strftime("%Y-%m-%d", expires_at)
+        state = expires_at <= now ? "expired on " : "expires on "
+        printf "\033[1;33mWarning: GPG %s for %s %s%s.\033[0m\n", component, identity, state, when
       }
-    }'
+    }
+    $1 == "sec" {
+      warn()
+      identity = $5
+      named = 0
+      expires_at = 0
+      component = "primary key"
+      active = $2 !~ /[rdi]/ && $12 !~ /D/
+    }
+    $1 == "uid" && !named && $2 !~ /[rdi]/ {
+      identity = $10
+      named = 1
+    }
+    ($1 == "sec" || $1 == "ssb") && active && $2 !~ /[rdi]/ && $12 !~ /D/ {
+      # Missing primary secret material still matters to available subkeys.
+      if ($1 == "ssb" && $15 == "#") next
+      if ($7 + 0 > 0 && (!expires_at || $7 + 0 < expires_at)) {
+        expires_at = $7 + 0
+        if ($1 == "ssb") {
+          component = $12 ~ /e/ ? "encryption subkey" : ($12 ~ /s/ ? "signing subkey" : ($12 ~ /a/ ? "authentication subkey" : "subkey"))
+        }
+      }
+    }
+    END { warn() }'
 fi
 
 # Reuse one ssh-agent across shells and preload the Git signing key.
