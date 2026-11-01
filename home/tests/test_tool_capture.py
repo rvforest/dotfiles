@@ -226,7 +226,7 @@ class TestToolCapture:
 
     @pytest.mark.parametrize("legacy", [False, True])
     @pytest.mark.parametrize("url", [
-        "https://audit-user:AUDIT_FAKE_CREDENTIAL@example.invalid/tool.whl",
+        "https://audit-user:AUDIT_FAKE_CREDENTIAL@example.invalid/tool.whl",  # pragma: allowlist secret (test fixture)
         "https://AUDIT_FAKE_CREDENTIAL@example.invalid/tool.whl",
         "https://example.invalid/tool.whl?token=AUDIT_FAKE_CREDENTIAL",
         "https://example.invalid/tool.whl?X-Amz-Signature=AUDIT_FAKE_CREDENTIAL",
