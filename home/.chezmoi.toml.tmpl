@@ -37,6 +37,9 @@
 {{-     $is_wsl = true -}}
 {{-   end -}}
 
+# Keep managed permissions consistent across shells and machines.
+umask = 0o022
+
 [data]
     name = "Robert Forest"
     email = "rvforest@gmail.com"
