@@ -148,7 +148,8 @@ EOF
     return 1
   fi
 
-  # Treat the entire response as untrusted data, including explanatory text.
+  # Slurp to require exactly one JSON response. This validates structure, not
+  # command safety; the user still reviews the command before executing it.
   if ! jq -se '
     length == 1 and (.[0] |
       type == "object" and
@@ -167,21 +168,20 @@ EOF
   local warning=$(jq -r '.warning' <<< "$resp")
   local cmd=$(jq -r '.command' <<< "$resp")
 
-  # 1. Print Technical Explanation (Dim / Cyan) if requested and present
+  # Only static labels may use print -P: PROMPT_SUBST can execute substitutions
+  # in model-generated text. Display response fields literally with print -r.
   if [[ -n "$explanation" && "$explanation" != "null" && "$explanation" != "" ]]; then
     print -Pn '%F{cyan}How it works:%f '
     print -r -- "$explanation"
   fi
 
-  # 2. Print Warning (Bold Red) ONLY if it contains an actual risk (Warnings are never optional!)
   if [[ -n "$warning" && "$warning" != "null" && "$warning" != "" ]]; then
     print -Pn '%F{red}%B⚠️  WARNING:%b '
     print -r -- "$warning"
   fi
 
-  # 3. Clean Visual Confirmation
   print -P "%F{green}➜ Command loaded below. Press [Enter] to run, or edit it:%f"
 
-  # 4. Push raw command directly to your cursor buffer
+  # Queue for editing; execution happens only when the user submits the buffer.
   print -z -- "$cmd"
 }

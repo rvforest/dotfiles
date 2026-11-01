@@ -40,6 +40,7 @@ def test_existing_environment_is_remembered_without_running_uv(tmp_path):
            "NVIM_LOG_FILE": str(tmp_path / "nvim.log")}
     env.pop("VIRTUAL_ENV", None)
     env.pop("CONDA_PREFIX", None)
+    # Fresh processes ensure restoration comes from disk, not session memory.
     for mode in ("select", "restore", "unknown"):
         directory = project
         if mode == "unknown":

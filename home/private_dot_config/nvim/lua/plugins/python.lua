@@ -3,10 +3,12 @@ return {
   {
     "linux-cultist/venv-selector.nvim",
     -- Later revisions automatically run `uv sync` for PEP 723 scripts.
-    -- Keep existing-env selection/caching; review that behavior before updating.
+    -- Update this pin only after checking that editing cannot install dependencies.
     commit = "fe6b3fc697e23707043aa8290da6a28d302996df", -- pragma: allowlist secret (public commit)
     opts = {
       options = {
+        -- This revision caches by working directory: select once per project,
+        -- then restore that selection when the Python language server attaches.
         enable_cached_venvs = true,
         cached_venv_automatic_activation = true,
         enable_default_searches = false,

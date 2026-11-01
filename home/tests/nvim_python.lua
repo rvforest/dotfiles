@@ -4,6 +4,8 @@ vim.opt.runtimepath:prepend(vim.env.AUDIT_SELECTOR_PATH)
 
 local opts = vim.deepcopy(selector_spec.opts)
 opts.cache = { file = vim.env.AUDIT_CACHE }
+-- Verify the selector's interpreter settings with a fake LSP client; this test
+-- does not exercise a real language server's import resolution.
 local client = { id = 123, settings = {}, notify = function() end }
 vim.lsp.get_clients = function(filter)
   return filter.name == "pyright" and { client } or {}

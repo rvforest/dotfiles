@@ -37,7 +37,8 @@
 {{-     $is_wsl = true -}}
 {{-   end -}}
 
-# Keep managed permissions consistent across shells and machines.
+# Use 755/644 for ordinary directories/files even when the shell umask is 002.
+# Explicit private_ attributes still restrict entries to 700/600.
 umask = 0o022
 
 [data]
