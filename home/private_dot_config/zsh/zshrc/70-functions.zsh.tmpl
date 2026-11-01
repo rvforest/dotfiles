@@ -4,6 +4,90 @@ function nvim() {
   uv run nvim "$@"
 }
 
+# Identify install subcommands without requiring them to precede global options.
+function _dotfiles_is_capturable_install() {
+  emulate -L zsh
+  local manager=$1
+  shift
+
+  case "$manager" in
+    brew)
+      local arg
+      for arg in "$@"; do
+        [[ "$arg" == "--" ]] && continue
+        [[ "$arg" == -* ]] && continue
+        if [[ "$arg" == "install" ]]; then
+          return 0
+        fi
+        return 1
+      done
+      ;;
+    uv)
+      local -a args=("$@")
+      local -A options_with_values=(
+        --allow-insecure-host 1
+        --cache-dir 1
+        --color 1
+        --config-file 1
+        --directory 1
+        --project 1
+        --trusted-host 1
+      )
+      local arg
+      local index=1
+      local expected_command=tool
+
+      while (( index <= ${#args} )); do
+        arg=${args[index]}
+        if (( ${+options_with_values[$arg]} )); then
+          (( index += 2 ))
+        elif [[ "$arg" == "--" || "$arg" == -* ]]; then
+          (( index += 1 ))
+        elif [[ "$arg" == "$expected_command" ]]; then
+          [[ "$expected_command" == "install" ]] && return 0
+          # uv accepts global options between `tool` and `install` too.
+          expected_command=install
+          (( index += 1 ))
+        else
+          return 1
+        fi
+      done
+      ;;
+  esac
+
+  return 1
+}
+
+# Capture successful interactive tool installs while preserving the original
+# command's output and exit status.
+function brew() {
+  command brew "$@"
+  local command_status=$?
+
+  if (( command_status == 0 )) &&
+    [[ -o interactive && -t 0 && -t 1 ]] &&
+    _dotfiles_is_capturable_install brew "$@" &&
+    command -v dotfiles-tool-capture >/dev/null 2>&1; then
+    command dotfiles-tool-capture brew || true
+  fi
+
+  return $command_status
+}
+
+function uv() {
+  command uv "$@"
+  local command_status=$?
+
+  if (( command_status == 0 )) &&
+    [[ -o interactive && -t 0 && -t 1 ]] &&
+    _dotfiles_is_capturable_install uv "$@" &&
+    command -v dotfiles-tool-capture >/dev/null 2>&1; then
+    command dotfiles-tool-capture uv || true
+  fi
+
+  return $command_status
+}
+
 # Source secrets loading function
 source "${XDG_CONFIG_HOME:-$HOME/.config}/direnv/lib/secrets.sh"
 

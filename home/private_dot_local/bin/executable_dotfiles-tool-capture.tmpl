@@ -1,0 +1,494 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+manager=${1:-}
+case "$manager" in
+    brew | uv) ;;
+    *)
+        echo "Usage: dotfiles-tool-capture {brew|uv}" >&2
+        exit 2
+        ;;
+esac
+shift
+
+for dependency in chezmoi yq; do
+    if ! command -v "$dependency" >/dev/null 2>&1; then
+        echo "Tool capture skipped: '$dependency' is unavailable." >&2
+        exit 1
+    fi
+done
+
+source_home=${DOTFILES_TOOLS_SOURCE_HOME:-$(chezmoi source-path)}
+data_file="$source_home/.chezmoidata/system_tools.yaml"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
+mkdir -p "$state_dir"
+
+if [[ ! -f "$data_file" ]]; then
+    echo "Tool capture skipped: cannot find $data_file" >&2
+    exit 1
+fi
+
+default_scope={{ if .is_mobile }}core{{ else }}desktop{{ end }}
+
+is_ignored() {
+    local ignore_file=$1
+    local item=$2
+
+    [[ -f "$ignore_file" ]] && grep -Fqx -- "$item" "$ignore_file"
+}
+
+append_unique_line() {
+    local file=$1
+    local item=$2
+
+    if [[ ! -f "$file" ]] || ! grep -Fqx -- "$item" "$file"; then
+        printf '%s\n' "$item" >> "$file"
+    fi
+}
+
+remember_local() {
+    local ignore_file=$1
+    local item=$2
+
+    append_unique_line "$ignore_file" "$item"
+    echo "Keeping $item local to this machine."
+}
+
+append_before_marker() {
+    local marker=$1
+    local item=$2
+    local temp_file
+    local yaml_item
+
+    if [[ -z "$item" || "$item" == *$'\n'* || "$item" == *$'\r'* ]]; then
+        echo "Cannot safely add unexpected package specification to $data_file" >&2
+        return 1
+    fi
+
+    if [[ "$item" =~ ^[A-Za-z0-9][A-Za-z0-9._+/@-]*$ ]]; then
+        yaml_item=$item
+    else
+        yaml_item=$(DOTFILES_CAPTURE_ITEM="$item" yq -n -o=json 'strenv(DOTFILES_CAPTURE_ITEM)')
+    fi
+
+    temp_file=$(mktemp "${data_file}.tmp.XXXXXX")
+    cp -p "$data_file" "$temp_file"
+
+    if ! DOTFILES_CAPTURE_YAML_ITEM="$yaml_item" awk -v marker="$marker" '
+        index($0, marker) {
+            match($0, /^[[:space:]]*/)
+            print substr($0, 1, RLENGTH) "- " ENVIRON["DOTFILES_CAPTURE_YAML_ITEM"]
+            found++
+        }
+        { print }
+        END { if (found != 1) exit 1 }
+    ' "$data_file" > "$temp_file"; then
+        rm -f "$temp_file"
+        echo "Could not find the unique capture marker '$marker'." >&2
+        return 1
+    fi
+
+    if ! yq -e '.' "$temp_file" >/dev/null; then
+        rm -f "$temp_file"
+        echo "Refusing to replace $data_file with invalid YAML." >&2
+        return 1
+    fi
+
+    mv "$temp_file" "$data_file"
+}
+
+adopt_item() {
+    local item=$1
+    local marker=$2
+    local scope=$3
+    local managed_file
+
+    case "$marker" in
+        *homebrew-formulas-*) managed_file="$state_dir/homebrew-formulas.txt" ;;
+        *homebrew-casks-*) managed_file="$state_dir/homebrew-casks.txt" ;;
+        *uv-tools-*) managed_file="$state_dir/uv-tools.txt" ;;
+        *)
+            echo "Unknown tool capture marker '$marker'." >&2
+            return 1
+            ;;
+    esac
+
+    if append_before_marker "$marker" "$item"; then
+        append_unique_line "$managed_file" "$item"
+        echo "Added $item to the $scope tools in $data_file"
+    fi
+}
+
+prompt_scoped_item() {
+    local label=$1
+    local item=$2
+    local core_marker=$3
+    local desktop_marker=$4
+    local ignore_file=$5
+    local ignore_item=${6:-$item}
+    local choice
+
+    if is_ignored "$ignore_file" "$ignore_item"; then
+        return 0
+    fi
+
+    printf '\n%s is installed but is not managed by chezmoi.\n' "$label"
+    if [[ "$default_scope" == "desktop" ]]; then
+        printf 'Manage it on [D]esktop machines (default), [c]ore/all machines, or keep [l]ocal? '
+    else
+        printf 'Manage it on [C]ore/all machines (default), [d]esktop machines, or keep [l]ocal? '
+    fi
+
+    if ! IFS= read -r choice; then
+        echo "Left $item unmanaged; it will be offered again after a future install."
+        return 0
+    fi
+
+    choice=${choice,,}
+    if [[ -z "$choice" ]]; then
+        choice=${default_scope:0:1}
+    fi
+
+    case "$choice" in
+        c | core)
+            adopt_item "$item" "$core_marker" core
+            ;;
+        d | desktop)
+            adopt_item "$item" "$desktop_marker" desktop
+            ;;
+        l | local)
+            remember_local "$ignore_file" "$ignore_item"
+            ;;
+        *)
+            echo "Left $item unmanaged; it will be offered again after a future install."
+            ;;
+    esac
+}
+
+prompt_desktop_item() {
+    local label=$1
+    local item=$2
+    local marker=$3
+    local ignore_file=$4
+    local choice
+
+    if is_ignored "$ignore_file" "$item"; then
+        return 0
+    fi
+
+    printf '\n%s is installed but is not managed by chezmoi.\n' "$label"
+    printf 'Manage it on [D]esktop machines (default), or keep [l]ocal? '
+    if ! IFS= read -r choice; then
+        echo "Left $item unmanaged; it will be offered again after a future install."
+        return 0
+    fi
+
+    choice=${choice,,}
+    case "$choice" in
+        '' | d | desktop)
+            adopt_item "$item" "$marker" desktop
+            ;;
+        l | local)
+            remember_local "$ignore_file" "$item"
+            ;;
+        *)
+            echo "Left $item unmanaged; it will be offered again after a future install."
+            ;;
+    esac
+}
+
+capture_brew() {
+    local cellar caskroom desired_specs receipt_rows receipt tap aliases alias item full_name cask_path
+    local formula_ignore_file="$state_dir/unmanaged-homebrew-formulas.txt"
+    local cask_ignore_file="$state_dir/unmanaged-homebrew-casks.txt"
+    local -a unmanaged_formulas=()
+    local -a unmanaged_casks=()
+    local -a formula_receipts=()
+    local -a receipt_aliases=()
+    declare -A desired_formulas=()
+    declare -A desired_casks=()
+    declare -A seen_formulas=()
+
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "Homebrew capture skipped: 'jq' is unavailable." >&2
+        return 1
+    fi
+    if ! cellar=$(command brew --cellar) || ! caskroom=$(command brew --caskroom); then
+        echo "Homebrew capture skipped: could not locate Homebrew's package directories." >&2
+        return 1
+    fi
+
+    desired_specs=$(yq -r '.homebrew.formulas.core[]?, .homebrew.formulas.desktop[]?' "$data_file")
+    while IFS= read -r item; do
+        [[ -n "$item" ]] && desired_formulas["$item"]=1
+    done <<< "$desired_specs"
+
+    desired_specs=$(yq -r '.homebrew.casks.desktop[]?' "$data_file")
+    while IFS= read -r item; do
+        [[ -n "$item" ]] && desired_casks["$item"]=1
+    done <<< "$desired_specs"
+
+    shopt -s nullglob
+    formula_receipts=("$cellar"/*/*/INSTALL_RECEIPT.json)
+    if ((${#formula_receipts[@]} > 0)); then
+        if ! receipt_rows=$(jq -r '
+            select(.installed_on_request == true)
+            | [input_filename, (.source.tap // ""), ((.aliases // []) | join(","))]
+            | @tsv
+        ' "${formula_receipts[@]}"); then
+            echo "Homebrew capture skipped: could not read Homebrew's install receipts." >&2
+            return 1
+        fi
+
+        while IFS=$'\t' read -r receipt tap aliases; do
+            [[ -n "$receipt" ]] || continue
+            item=${receipt#"$cellar"/}
+            item=${item%%/*}
+            full_name=$item
+            if [[ -n "$tap" && "$tap" != "homebrew/core" ]]; then
+                full_name="$tap/$item"
+            fi
+            if [[ -n "${seen_formulas[$full_name]+x}" ]]; then
+                continue
+            fi
+            seen_formulas["$full_name"]=1
+
+            if [[ -n "${desired_formulas[$item]+x}" || -n "${desired_formulas[$full_name]+x}" ]]; then
+                continue
+            fi
+            receipt_aliases=()
+            IFS=',' read -r -a receipt_aliases <<< "$aliases"
+            for alias in "${receipt_aliases[@]}"; do
+                if [[ -n "${desired_formulas[$alias]+x}" ]]; then
+                    continue 2
+                fi
+            done
+            unmanaged_formulas+=("$full_name")
+        done <<< "$receipt_rows"
+    fi
+
+    for cask_path in "$caskroom"/*; do
+        [[ -d "$cask_path" ]] || continue
+        item=${cask_path##*/}
+        if [[ -z "${desired_casks[$item]+x}" ]]; then
+            unmanaged_casks+=("$item")
+        fi
+    done
+
+    for item in "${unmanaged_formulas[@]}"; do
+        prompt_scoped_item "Homebrew formula '$item'" "$item" \
+            "dotfiles-tool-capture: homebrew-formulas-core" \
+            "dotfiles-tool-capture: homebrew-formulas-desktop" \
+            "$formula_ignore_file"
+    done
+    for item in "${unmanaged_casks[@]}"; do
+        prompt_desktop_item "Homebrew cask '$item'" "$item" \
+            "dotfiles-tool-capture: homebrew-casks-desktop" \
+            "$cask_ignore_file"
+    done
+}
+
+normalize_uv_name() {
+    local spec=$1
+    local name
+
+    if [[ ! "$spec" =~ ^[[:space:]]*([A-Za-z0-9][A-Za-z0-9._-]*) ]]; then
+        return 1
+    fi
+
+    name=${BASH_REMATCH[1],,}
+    name=$(sed -E 's/[._-]+/-/g' <<< "$name")
+    printf '%s\n' "$name"
+}
+
+uv_git_requirement_url() {
+    local stored_url=$1
+    local base_url=$stored_url
+    local query=''
+    local precise=''
+    local reference=''
+    local parameter
+    local -a fragments=()
+    local -a parameters=()
+
+    # uv stores the resolved commit in the fragment and the requested ref plus
+    # source-tree options in the query string. Convert that back to PEP 508.
+    if [[ "$base_url" == *'#'* ]]; then
+        precise=${base_url#*#}
+        base_url=${base_url%%#*}
+    fi
+    if [[ "$base_url" == *'?'* ]]; then
+        query=${base_url#*\?}
+        base_url=${base_url%%\?*}
+    fi
+
+    IFS='&' read -r -a parameters <<< "$query"
+    for parameter in "${parameters[@]}"; do
+        case "$parameter" in
+            branch=* | tag=* | rev=*)
+                reference=${parameter#*=}
+                ;;
+            subdirectory=* | path=* | lfs=*)
+                fragments+=("$parameter")
+                ;;
+        esac
+    done
+
+    [[ -n "$precise" ]] && reference=$precise
+
+    printf 'git+%s' "$base_url"
+    [[ -n "$reference" ]] && printf '@%s' "$reference"
+    if ((${#fragments[@]} > 0)); then
+        local joined_fragments
+        joined_fragments=$(IFS='&'; printf '%s' "${fragments[*]}")
+        printf '#%s' "$joined_fragments"
+    fi
+    printf '\n'
+}
+
+uv_receipt_is_manifest_compatible() {
+    local tool_receipt=$1
+
+    # A single manifest string can preserve the primary requirement, but not
+    # separate install options such as --with, --python, or --constraints.
+    # Filter each condition separately: yq variable bindings combined with `and`
+    # can otherwise accept receipts whose later conditions are false.
+    yq -e -p=toml -o=yaml '
+        .tool |
+        select(((.requirements // []) | length) == 1) |
+        select(((.constraints // []) | length) == 0) |
+        select(((.overrides // []) | length) == 0) |
+        select(((.excludes // []) | length) == 0) |
+        select(((."build-constraint-dependencies" // []) | length) == 0) |
+        select(.python == null) |
+        select(((.options // {}) | length) == 0) |
+        select(.requirements[0].index == null) |
+        select(.requirements[0].editable == null) |
+        select(.requirements[0].virtual == null)
+    ' "$tool_receipt" >/dev/null 2>&1
+}
+
+uv_requirement_from_receipt() {
+    local tool_receipt=$1
+    local requirement_type
+    local fields_output
+    local -a fields=()
+    local name extras specifier url git path_source directory_source marker subdirectory
+    local source_url
+
+    # Older uv receipts stored PEP 508 strings directly; current receipts use
+    # a structured requirement that needs to be serialized explicitly.
+    requirement_type=$(yq -e -p=toml -o=yaml -r '.tool.requirements[0] | type' "$tool_receipt") || return 1
+    if [[ "$requirement_type" == "!!str" ]]; then
+        yq -e -p=toml -o=yaml -r '.tool.requirements[0]' "$tool_receipt"
+        return
+    fi
+    [[ "$requirement_type" == "!!map" ]] || return 1
+
+    # shellcheck disable=SC2016 # $requirement is a yq variable.
+    fields_output=$(yq -e -p=toml -o=yaml -r '
+        .tool.requirements[0] as $requirement |
+        [
+            $requirement.name,
+            (($requirement.extras // []) | join(",")),
+            ($requirement.specifier // ""),
+            ($requirement.url // ""),
+            ($requirement.git // ""),
+            ($requirement.path // ""),
+            ($requirement.directory // ""),
+            ($requirement.marker // ""),
+            ($requirement.subdirectory // ""),
+            "__DOTFILES_CAPTURE_END__"
+        ] | .[]
+    ' "$tool_receipt") || return 1
+    mapfile -t fields <<< "$fields_output"
+    ((${#fields[@]} == 10)) && [[ "${fields[9]}" == "__DOTFILES_CAPTURE_END__" ]] || return 1
+
+    name=${fields[0]}
+    extras=${fields[1]}
+    specifier=${fields[2]}
+    url=${fields[3]}
+    git=${fields[4]}
+    path_source=${fields[5]}
+    directory_source=${fields[6]}
+    marker=${fields[7]}
+    subdirectory=${fields[8]}
+    [[ -n "$name" ]] || return 1
+
+    requirement=$name
+    [[ -n "$extras" ]] && requirement+="[$extras]"
+
+    if [[ -n "$specifier" ]]; then
+        requirement+=$specifier
+    elif [[ -n "$url" ]]; then
+        source_url=$url
+        if [[ -n "$subdirectory" ]]; then
+            if [[ "$source_url" == *'#'* ]]; then
+                source_url+="&subdirectory=$subdirectory"
+            else
+                source_url+="#subdirectory=$subdirectory"
+            fi
+        fi
+        requirement+=" @ $source_url"
+    elif [[ -n "$git" ]]; then
+        source_url=$(uv_git_requirement_url "$git")
+        requirement+=" @ $source_url"
+    elif [[ -n "$path_source" || -n "$directory_source" ]]; then
+        source_url=${path_source:-$directory_source}
+        [[ "$source_url" == file://* ]] || source_url="file://$source_url"
+        requirement+=" @ $source_url"
+    fi
+
+    [[ -n "$marker" ]] && requirement+=" ; $marker"
+    printf '%s\n' "$requirement"
+}
+
+capture_uv() {
+    local desired_specs tool_dir tool_receipt spec item normalized requirement label
+    local ignore_file="$state_dir/unmanaged-uv-tools.txt"
+    declare -A desired_tools=()
+
+    if ! tool_dir=$(command uv tool dir); then
+        echo "uv capture skipped: could not locate the uv tools directory." >&2
+        return 1
+    fi
+    desired_specs=$(yq -r '.uv.tools.core[]?, .uv.tools.desktop[]?' "$data_file")
+
+    while IFS= read -r spec; do
+        [[ -n "$spec" ]] || continue
+        normalized=$(normalize_uv_name "$spec")
+        desired_tools["$normalized"]=1
+    done <<< "$desired_specs"
+
+    shopt -s nullglob
+    for tool_receipt in "$tool_dir"/*/uv-receipt.toml; do
+        item=${tool_receipt%/uv-receipt.toml}
+        item=${item##*/}
+        normalized=$(normalize_uv_name "$item")
+        if [[ -z "${desired_tools[$normalized]+x}" ]]; then
+            if ! uv_receipt_is_manifest_compatible "$tool_receipt"; then
+                echo "uv tool '$item' uses install options that system_tools.yaml cannot represent; leaving it unmanaged." >&2
+                continue
+            fi
+            if ! requirement=$(uv_requirement_from_receipt "$tool_receipt"); then
+                echo "Could not read the requested requirement for uv tool '$item'; leaving it unmanaged." >&2
+                continue
+            fi
+
+            label="uv tool '$item'"
+            if [[ "$requirement" != "$normalized" ]]; then
+                label+=" (requested as '$requirement')"
+            fi
+            prompt_scoped_item "$label" "$requirement" \
+                "dotfiles-tool-capture: uv-tools-core" \
+                "dotfiles-tool-capture: uv-tools-desktop" \
+                "$ignore_file" \
+                "$normalized"
+        fi
+    done
+}
+
+case "$manager" in
+    brew) capture_brew ;;
+    uv) capture_uv ;;
+esac

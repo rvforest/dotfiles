@@ -77,44 +77,79 @@ write_state_file() {
     fi
 }
 
+brew_item_key() {
+    local scope_flag=$1
+    local item=$2
+    local -n installed_names_ref=$3
+
+    # Homebrew omits the default tap in `list --full-name` output. Bare
+    # requests can resolve to an installed tap; qualified requests stay exact.
+    case "$scope_flag:$item" in
+        --formula:homebrew/core/*)
+            printf '%s\n' "${item#homebrew/core/}"
+            return
+            ;;
+        --cask:homebrew/cask/*)
+            printf '%s\n' "${item#homebrew/cask/}"
+            return
+            ;;
+    esac
+    if [[ "$item" != */* ]]; then
+        item=${installed_names_ref[$item]-$item}
+    fi
+    printf '%s\n' "$item"
+}
+
 reconcile_brew_items() {
     local scope_flag=$1
     local label=$2
     local desired_array_name=$3
     local managed_file=$4
+    local item item_key
     local -n desired_items_ref="$desired_array_name"
     local -a installed_items=()
     local -a outdated_items=()
     local -a previously_managed_items=()
     local -a brew_scope_args=()
+    local -a brew_list_args=()
     declare -A desired_items_set=()
     declare -A installed_items_set=()
     declare -A outdated_items_set=()
+    declare -A installed_names_by_short_name=()
 
     if [[ -n "$scope_flag" ]]; then
         brew_scope_args+=("$scope_flag")
     fi
+    brew_list_args=("${brew_scope_args[@]}")
+    if [[ "$scope_flag" == "--formula" ]]; then
+        brew_list_args+=("--full-name")
+    fi
 
-    mapfile -t installed_items < <(brew list "${brew_scope_args[@]}")
+    mapfile -t installed_items < <(brew list "${brew_list_args[@]}")
     mapfile -t outdated_items < <(brew outdated --quiet "${brew_scope_args[@]}" || true)
     read_state_file "$managed_file" previously_managed_items
 
-    for item in "${desired_items_ref[@]}"; do
-        desired_items_set["$item"]=1
+    for item in "${installed_items[@]}"; do
+        item_key=$(brew_item_key "$scope_flag" "$item" installed_names_by_short_name)
+        installed_items_set["$item_key"]=1
+        installed_names_by_short_name["${item_key##*/}"]=$item_key
     done
 
-    for item in "${installed_items[@]}"; do
-        installed_items_set["$item"]=1
+    for item in "${desired_items_ref[@]}"; do
+        item_key=$(brew_item_key "$scope_flag" "$item" installed_names_by_short_name)
+        desired_items_set["$item_key"]=1
     done
 
     for item in "${outdated_items[@]}"; do
-        outdated_items_set["$item"]=1
+        item_key=$(brew_item_key "$scope_flag" "$item" installed_names_by_short_name)
+        outdated_items_set["$item_key"]=1
     done
 
     echo "Reconciling homebrew $label..."
     for item in "${desired_items_ref[@]}"; do
-        if [[ -n "${installed_items_set[$item]+x}" ]]; then
-            if [[ -n "${outdated_items_set[$item]+x}" ]]; then
+        item_key=$(brew_item_key "$scope_flag" "$item" installed_names_by_short_name)
+        if [[ -n "${installed_items_set[$item_key]+x}" ]]; then
+            if [[ -n "${outdated_items_set[$item_key]+x}" ]]; then
                 echo "Upgrading $label: $item"
                 if ! brew upgrade "${brew_scope_args[@]}" "$item"; then
                     warn "Failed to upgrade $label '$item'"
@@ -131,7 +166,8 @@ reconcile_brew_items() {
     done
 
     for item in "${previously_managed_items[@]}"; do
-        if [[ -z "${desired_items_set[$item]+x}" && -n "${installed_items_set[$item]+x}" ]]; then
+        item_key=$(brew_item_key "$scope_flag" "$item" installed_names_by_short_name)
+        if [[ -z "${desired_items_set[$item_key]+x}" && -n "${installed_items_set[$item_key]+x}" ]]; then
             echo "Uninstalling removed $label: $item"
             if ! brew uninstall "${brew_scope_args[@]}" "$item"; then
                 warn "Failed to uninstall removed $label '$item'"
@@ -140,6 +176,18 @@ reconcile_brew_items() {
     done
 
     write_state_file "$managed_file" "${desired_items_ref[@]}"
+}
+
+normalize_uv_name() {
+    local spec=$1
+    local name
+
+    if [[ ! "$spec" =~ ^[[:space:]]*([A-Za-z0-9][A-Za-z0-9._-]*) ]]; then
+        return 1
+    fi
+
+    name=${BASH_REMATCH[1],,}
+    sed -E 's/[._-]+/-/g' <<< "$name"
 }
 
 list_uv_tools() {
@@ -154,58 +202,102 @@ reconcile_uv_tools() {
     local desired_array_name=$1
     local managed_file=$2
     local -n desired_items_ref="$desired_array_name"
+    local spec tool_name previous_spec
     local -a installed_items=()
     local -a outdated_items=()
     local -a previously_managed_items=()
-    declare -A desired_items_set=()
-    declare -A installed_items_set=()
-    declare -A outdated_items_set=()
+    local -a desired_tool_names=()
+    local -a reconciled_specs=()
+    declare -A desired_tools_set=()
+    declare -A desired_specs_by_name=()
+    declare -A installed_tools_set=()
+    declare -A outdated_tools_set=()
+    declare -A previous_specs_by_name=()
 
     mapfile -t installed_items < <(list_uv_tools)
     mapfile -t outdated_items < <(list_outdated_uv_tools || true)
     read_state_file "$managed_file" previously_managed_items
 
-    for item in "${desired_items_ref[@]}"; do
-        desired_items_set["$item"]=1
+    for spec in "${desired_items_ref[@]}"; do
+        if ! tool_name=$(normalize_uv_name "$spec"); then
+            warn "Invalid uv tool specification '$spec'"
+            continue
+        fi
+        if [[ -z "${desired_tools_set[$tool_name]+x}" ]]; then
+            desired_tool_names+=("$tool_name")
+        fi
+        desired_tools_set["$tool_name"]=1
+        desired_specs_by_name["$tool_name"]=$spec
     done
 
-    for item in "${installed_items[@]}"; do
-        installed_items_set["$item"]=1
+    for tool_name in "${installed_items[@]}"; do
+        if tool_name=$(normalize_uv_name "$tool_name"); then
+            installed_tools_set["$tool_name"]=1
+        fi
     done
 
-    for item in "${outdated_items[@]}"; do
-        outdated_items_set["$item"]=1
+    for tool_name in "${outdated_items[@]}"; do
+        if tool_name=$(normalize_uv_name "$tool_name"); then
+            outdated_tools_set["$tool_name"]=1
+        fi
+    done
+
+    for previous_spec in "${previously_managed_items[@]}"; do
+        if tool_name=$(normalize_uv_name "$previous_spec"); then
+            previous_specs_by_name["$tool_name"]=$previous_spec
+        fi
     done
 
     echo "Reconciling uv tools..."
-    for item in "${desired_items_ref[@]}"; do
-        if [[ -n "${installed_items_set[$item]+x}" ]]; then
-            if [[ -n "${outdated_items_set[$item]+x}" ]]; then
-                echo "Upgrading uv tool: $item"
-                if ! uv tool upgrade "$item"; then
-                    warn "Failed to upgrade uv tool '$item'"
+    for tool_name in "${desired_tool_names[@]}"; do
+        spec=${desired_specs_by_name[$tool_name]}
+        if [[ -n "${installed_tools_set[$tool_name]+x}" ]]; then
+            previous_spec=${previous_specs_by_name[$tool_name]-}
+            if [[ "$previous_spec" != "$spec" ]]; then
+                echo "Updating uv tool requirement: $spec"
+                if ! uv tool install --force "$spec"; then
+                    warn "Failed to update uv tool requirement '$spec'"
+                    # Keep the last applied requirement so the next run retries.
+                    if [[ -n "$previous_spec" ]]; then
+                        reconciled_specs+=("$previous_spec")
+                    fi
+                    continue
+                fi
+            elif [[ -n "${outdated_tools_set[$tool_name]+x}" ]]; then
+                echo "Upgrading uv tool: $tool_name"
+                if ! uv tool upgrade "$tool_name"; then
+                    warn "Failed to upgrade uv tool '$tool_name'"
                 fi
             else
-                echo "uv tool already up to date: $item"
+                echo "uv tool already up to date: $tool_name"
             fi
         else
-            echo "Installing uv tool: $item"
-            if ! uv tool install "$item"; then
-                warn "Failed to install uv tool '$item'"
+            echo "Installing uv tool: $spec"
+            if ! uv tool install "$spec"; then
+                warn "Failed to install uv tool '$spec'"
+                if [[ -n "${previous_specs_by_name[$tool_name]-}" ]]; then
+                    reconciled_specs+=("${previous_specs_by_name[$tool_name]}")
+                fi
+                continue
+            fi
+        fi
+        reconciled_specs+=("$spec")
+    done
+
+    for previous_spec in "${previously_managed_items[@]}"; do
+        if ! tool_name=$(normalize_uv_name "$previous_spec"); then
+            continue
+        fi
+        if [[ -z "${desired_tools_set[$tool_name]+x}" && -n "${installed_tools_set[$tool_name]+x}" ]]; then
+            echo "Uninstalling removed uv tool: $tool_name"
+            if ! uv tool uninstall "$tool_name"; then
+                warn "Failed to uninstall removed uv tool '$tool_name'"
+                reconciled_specs+=("$previous_spec")
             fi
         fi
     done
 
-    for item in "${previously_managed_items[@]}"; do
-        if [[ -z "${desired_items_set[$item]+x}" && -n "${installed_items_set[$item]+x}" ]]; then
-            echo "Uninstalling removed uv tool: $item"
-            if ! uv tool uninstall "$item"; then
-                warn "Failed to uninstall removed uv tool '$item'"
-            fi
-        fi
-    done
-
-    write_state_file "$managed_file" "${desired_items_ref[@]}"
+    write_state_file "$managed_file" "${reconciled_specs[@]}"
 }
 
 list_llm_plugins() {
@@ -275,11 +367,16 @@ desired_casks=(
 {{- end }}
 )
 
-desired_uv_tools=(
-{{- range .uv.tools }}
-    "{{ . }}"
+mapfile -t desired_uv_tools <<'__DOTFILES_MANAGED_UV_TOOLS__'
+{{- range .uv.tools.core }}
+{{ . }}
 {{- end }}
-)
+{{- if not .is_mobile }}
+{{- range .uv.tools.desktop }}
+{{ . }}
+{{- end }}
+{{- end }}
+__DOTFILES_MANAGED_UV_TOOLS__
 
 desired_llm_plugins=(
 {{- range .llm.plugins }}

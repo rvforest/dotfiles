@@ -1,3 +1,5 @@
+# Keep the capture markers below; the install-time helper uses them as stable
+# insertion points without reformatting this file.
 homebrew:
   formulas:
     # Essential CLI tools that this repo expects everywhere Homebrew is used.
@@ -32,6 +34,8 @@ homebrew:
       - vim  # text editor
       - yq # like jq for yaml
       - zoxide # a smarter cd command
+      - lazysql
+      # dotfiles-tool-capture: homebrew-formulas-core
 
     # Heavier development tools for non-mobile machines.
     desktop:
@@ -55,21 +59,33 @@ homebrew:
       - yj # Convert between YAML, TOML, JSON, and HCL
       - zellij # terminal workspace manager
       - usage # usage CLI tool
+      # dotfiles-tool-capture: homebrew-formulas-desktop
 
   casks:
     # GUI applications and special packages for desktop-like environments.
-    desktop: []
+    desktop:
+      # dotfiles-tool-capture: homebrew-casks-desktop
 
 uv:
-  # These should be plain package specs understood by `uv tool install`.
+  # These are PEP 508 package requirements understood by `uv tool install`.
+  # Installs that need additional CLI options remain machine-local.
   tools:
-    - copier
-    - httpie
-    - langgraph-cli
-    - llm
-    - nox
-    - pre-commit
-    - watchgha
+    # Existing tools remain available everywhere, including mobile machines.
+    core:
+      - copier
+      - httpie
+      - langgraph-cli
+      - llm
+      - nox
+      - pre-commit
+      - watchgha
+      - harlequin
+      - specify-cli
+      # dotfiles-tool-capture: uv-tools-core
+
+    # Install-time capture defaults new tools to this non-mobile scope.
+    desktop:
+      # dotfiles-tool-capture: uv-tools-desktop
 
 llm:
   plugins:
