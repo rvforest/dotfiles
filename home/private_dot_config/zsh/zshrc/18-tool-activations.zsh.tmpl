@@ -23,3 +23,5 @@ if [[ -z ${__DOTFILES_ZOXIDE_INIT_DONE-} ]]; then
     eval "$(zoxide init zsh)"
     typeset -g __DOTFILES_ZOXIDE_INIT_DONE=1
 fi
+
+eval "$(fnm env --use-on-cd --shell zsh)"
