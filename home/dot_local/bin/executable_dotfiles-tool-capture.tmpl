@@ -368,25 +368,32 @@ uv_receipt_is_manifest_compatible() {
     ' "$tool_receipt" >/dev/null 2>&1
 }
 
+# Publication policy for captured requirements: return 0 to allow capture, or 1
+# to keep the install local. Call before displaying or storing the requirement.
+# This checks URL structure only; it cannot detect every secret (for example,
+# a credential embedded in a URL path) or establish that a resource is public.
 uv_requirement_is_public() {
     local spec=$1
     local url_pattern='[[:alpha:]][[:alnum:]+.-]*://[^[:space:]]+'
     local url authority fragment parameter
     local -a parameters=()
 
+    # Reject terminal/line control characters; plain package specs need no URL checks.
     [[ "$spec" =~ [[:cntrl:]] ]] && return 1
     [[ "$spec" =~ $url_pattern ]] || return 0
     url=${BASH_REMATCH[0]}
+    # Inspect userinfo/host separately so a Git revision's @ in the path is allowed.
     authority=${url#*://}
     authority=${authority%%[/?#]*}
 
-    # Do not try to redact an install into a different requirement. Keep URLs
-    # with userinfo or query parameters local; either can contain credentials.
+    # Keep all userinfo and query-bearing URLs local, including harmless ones.
+    # Redacting credentials could change the requirement or break authentication.
     [[ "$authority" == *@* || "$url" == *'?'* ]] && return 1
     if [[ "$url" == *'#'* ]]; then
         fragment=${url#*#}
         IFS='&' read -r -a parameters <<< "$fragment"
         for parameter in "${parameters[@]}"; do
+            # Allow only known source options and SHA-256 digests; reject other fragments.
             if [[ "$parameter" =~ ^(subdirectory|path)=[A-Za-z0-9._+/-]+$ ]] ||
                 [[ "$parameter" =~ ^sha256=[A-Fa-f0-9]{64}$ ]] ||
                 [[ "$parameter" =~ ^lfs=(true|false)$ ]]; then
