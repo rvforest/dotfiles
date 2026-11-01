@@ -19,7 +19,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CAPTURE = ROOT / "private_dot_local/bin/executable_dotfiles-tool-capture.tmpl"
+CAPTURE = ROOT / "dot_local/bin/executable_dotfiles-tool-capture.tmpl"
 INSTALLER = ROOT / ".chezmoiscripts/run_onchange_after_30-install-tools.sh.tmpl"
 FUNCTIONS = ROOT / "private_dot_config/zsh/zshrc/70-functions.zsh.tmpl"
 
