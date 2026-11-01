@@ -65,3 +65,24 @@ def test_failed_model_call_never_queues_a_command(tmp_path):
     assert result.returncode != 0
     assert "Could not generate" in result.stderr
     assert "QUEUED=" not in result.stdout
+
+
+def test_opening_editor_does_not_run_uv(tmp_path):
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    for name in ("uv", "nvim"):
+        command = bindir / name
+        command.write_text(f'#!/bin/sh\nprintf invoked > "$AUDIT_ROOT/{name}-invoked"\n')
+        command.chmod(0o700)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "untrusted-project"\nversion = "0.1.0"\n'
+    )
+    definitions = FUNCTIONS.read_text().split("# Source secrets loading function")[0]
+    result = subprocess.run(
+        ["zsh", "-f"], input=definitions + "\nnvim untrusted.py\n", text=True,
+        capture_output=True, cwd=tmp_path, timeout=15,
+        env={**os.environ, "PATH": str(bindir) + ":" + os.environ["PATH"], "AUDIT_ROOT": str(tmp_path)},
+    )
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "nvim-invoked").exists()
+    assert not (tmp_path / "uv-invoked").exists()
