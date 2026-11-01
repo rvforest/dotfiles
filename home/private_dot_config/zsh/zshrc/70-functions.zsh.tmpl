@@ -147,7 +147,24 @@ EOF
 )
 
   # Fetch from LLM
-  resp=$(llm "$user_prompt" -s "$sys_prompt")
+  if ! resp=$(llm "$user_prompt" -s "$sys_prompt"); then
+    print -r -- "Error: Could not generate a command." >&2
+    return 1
+  fi
+
+  # Treat the entire response as untrusted data, including explanatory text.
+  if ! jq -se '
+    length == 1 and (.[0] |
+      type == "object" and
+      keys == ["command", "explanation", "warning"] and
+      (.explanation | type == "string") and
+      (.warning | type == "string") and
+      (.command | type == "string" and test("[^[:space:]]"))
+    )
+  ' <<< "$resp" >/dev/null 2>&1; then
+    print -r -- "Error: The generated command response is invalid." >&2
+    return 1
+  fi
 
   # Extract fields using zsh here-strings
   local explanation=$(jq -r '.explanation' <<< "$resp")
@@ -156,17 +173,19 @@ EOF
 
   # 1. Print Technical Explanation (Dim / Cyan) if requested and present
   if [[ -n "$explanation" && "$explanation" != "null" && "$explanation" != "" ]]; then
-    print -P "%F{cyan}How it works:%f $explanation"
+    print -Pn '%F{cyan}How it works:%f '
+    print -r -- "$explanation"
   fi
 
   # 2. Print Warning (Bold Red) ONLY if it contains an actual risk (Warnings are never optional!)
   if [[ -n "$warning" && "$warning" != "null" && "$warning" != "" ]]; then
-    print -P "%F{red}%B⚠️  WARNING:%b $warning%f"
+    print -Pn '%F{red}%B⚠️  WARNING:%b '
+    print -r -- "$warning"
   fi
 
   # 3. Clean Visual Confirmation
   print -P "%F{green}➜ Command loaded below. Press [Enter] to run, or edit it:%f"
 
   # 4. Push raw command directly to your cursor buffer
-  print -z "$cmd"
+  print -z -- "$cmd"
 }
