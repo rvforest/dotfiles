@@ -224,6 +224,32 @@ class TestToolCapture:
         for requirement in expected:
             assert ["uv", "tool", "install", requirement] in self.commands()
 
+    @pytest.mark.parametrize("legacy", [False, True])
+    @pytest.mark.parametrize("url", [
+        "https://audit-user:AUDIT_FAKE_CREDENTIAL@example.invalid/tool.whl",
+        "https://AUDIT_FAKE_CREDENTIAL@example.invalid/tool.whl",
+        "https://example.invalid/tool.whl?token=AUDIT_FAKE_CREDENTIAL",
+        "https://example.invalid/tool.whl?X-Amz-Signature=AUDIT_FAKE_CREDENTIAL",
+        "https://example.invalid/tool.whl#token=AUDIT_FAKE_CREDENTIAL",
+    ])
+    def test_uv_private_urls_are_never_displayed_or_adopted(self, legacy, url):
+        requirement = json.dumps("capture-private @ " + url) if legacy else (
+            '{ name = "capture-private", url = ' + json.dumps(url) + " }"
+        )
+        self.uv_receipt("capture-private", requirement)
+        before = self.manifest.read_bytes()
+        result = self.capture("uv", "d\n")
+        assert "keeping it local" in result.stderr
+        assert "AUDIT_FAKE_CREDENTIAL" not in result.stdout + result.stderr
+        assert self.manifest.read_bytes() == before
+        assert not (self.state / "uv-tools.txt").exists()
+
+    def test_uv_public_hash_url_can_be_adopted(self):
+        url = "https://example.invalid/tool.whl#sha256=" + "a" * 64
+        self.uv_receipt("capture-hash", '{ name = "capture-hash", url = ' + json.dumps(url) + " }")
+        self.capture("uv", "d\n")
+        assert self.values(".uv.tools.desktop") == ["capture-hash @ " + url]
+
     def test_uv_install_options_remain_unmanaged(self):
         self.uv_receipt("capture-python", '{ name = "capture-python" }', 'python = "3.12"\n')
         self.uv_receipt("capture-with", '{ name = "capture-with" }, { name = "extra" }')

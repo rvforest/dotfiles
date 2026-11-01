@@ -368,6 +368,36 @@ uv_receipt_is_manifest_compatible() {
     ' "$tool_receipt" >/dev/null 2>&1
 }
 
+uv_requirement_is_public() {
+    local spec=$1
+    local url_pattern='[[:alpha:]][[:alnum:]+.-]*://[^[:space:]]+'
+    local url authority fragment parameter
+    local -a parameters=()
+
+    [[ "$spec" =~ [[:cntrl:]] ]] && return 1
+    [[ "$spec" =~ $url_pattern ]] || return 0
+    url=${BASH_REMATCH[0]}
+    authority=${url#*://}
+    authority=${authority%%[/?#]*}
+
+    # Do not try to redact an install into a different requirement. Keep URLs
+    # with userinfo or query parameters local; either can contain credentials.
+    [[ "$authority" == *@* || "$url" == *'?'* ]] && return 1
+    if [[ "$url" == *'#'* ]]; then
+        fragment=${url#*#}
+        IFS='&' read -r -a parameters <<< "$fragment"
+        for parameter in "${parameters[@]}"; do
+            if [[ "$parameter" =~ ^(subdirectory|path)=[A-Za-z0-9._+/-]+$ ]] ||
+                [[ "$parameter" =~ ^sha256=[A-Fa-f0-9]{64}$ ]] ||
+                [[ "$parameter" =~ ^lfs=(true|false)$ ]]; then
+                continue
+            fi
+            return 1
+        done
+    fi
+    return 0
+}
+
 uv_requirement_from_receipt() {
     local tool_receipt=$1
     local requirement_type
@@ -472,6 +502,10 @@ capture_uv() {
             fi
             if ! requirement=$(uv_requirement_from_receipt "$tool_receipt"); then
                 echo "Could not read the requested requirement for uv tool '$item'; leaving it unmanaged." >&2
+                continue
+            fi
+            if ! uv_requirement_is_public "$requirement"; then
+                echo "uv tool '$item' has a requirement that may contain private URL data; keeping it local." >&2
                 continue
             fi
 
