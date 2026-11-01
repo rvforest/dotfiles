@@ -60,13 +60,14 @@ fi
 echo "Using GPG key: $KEY_ID"
 
 # pass initialization
+# Enforce privacy for existing stores as well as newly initialized stores.
+install -d -m 700 "$STORE_DIR"
 if [ -f "${STORE_DIR}/.gpg-id" ]; then
   echo "pass already initialized at ${STORE_DIR}, skipping."
 else
   echo ""
   echo "=== Initializing pass ==="
   echo "Store location: ${STORE_DIR}"
-  mkdir -p "$STORE_DIR"
   pass init "$KEY_ID"
   echo "pass initialized successfully."
 fi
