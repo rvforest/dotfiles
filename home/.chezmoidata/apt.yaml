@@ -24,6 +24,8 @@ apt:
     # list for distro-specific packages.
     - name: locales
     - name: build-essential
+    - name: procps
+    - name: file
     - name: software-properties-common
       # Only needed on Ubuntu, where the git-core PPA is configured.
       ids:
@@ -34,4 +36,5 @@ apt:
     - name: gpg
     - name: git
     - name: mosh
+    - name: openssh-client
     - name: zsh

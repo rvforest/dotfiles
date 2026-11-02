@@ -13,14 +13,13 @@ fi
 
 echo "Installing Homebrew..."
 
-# Install homebrew
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Keep download failure visible to set -e; bash -c "" would otherwise succeed
+# and chezmoi would record this stage as complete without installing anything.
+homebrew_installer=$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)
+/bin/bash -c "$homebrew_installer"
 
 # Add homebrew to PATH for this session
-if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-elif [[ -d "$HOME/.linuxbrew" ]]; then
-    eval "$($HOME/.linuxbrew/bin/brew shellenv)"
-fi
+{{ template "homebrew-env.sh" . }}
+command -v brew >/dev/null
 
 echo "Homebrew installation completed."

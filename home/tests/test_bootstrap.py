@@ -48,7 +48,9 @@ class Bootstrap:
             input=path.read_text(), capture_output=True, text=True, timeout=30,
         )
         assert result.returncode == 0, result.stderr
-        return result.stdout
+        # Keep a missing fixture installation from falling through to the
+        # developer machine's system-wide Homebrew installation.
+        return result.stdout.replace("/home/linuxbrew/.linuxbrew", str(self.root / "global-linuxbrew"))
 
     def run(self, name, expected_status=0):
         result = subprocess.run(
@@ -84,8 +86,24 @@ def test_later_scripts_find_tools_without_shell_startup(bootstrap):
     assert (b.root / "hook-call").read_text().strip() == "install --install-hooks"
     assert Path((b.root / "hook-repo").read_text().strip()) == ROOT.parent
     assert (b.root / "gh-calls").read_text().splitlines() == [
-        "auth status --hostname github.com", "auth setup-git",
+        "auth status --hostname github.com",
     ]
+    config = b.root / "managed-git-config"
+    config.write_text(b.render(ROOT / "private_dot_config/private_git/config.tmpl"))
+    helper = subprocess.run(
+        ["git", "config", "--file", str(config), "--get-all", "credential.https://github.com.helper"],
+        env=b.env, capture_output=True, text=True, timeout=15,
+    )
+    assert helper.returncode == 0, helper.stderr
+    assert helper.stdout.splitlines() == ["", "!gh auth git-credential"]
+
+
+def test_failed_homebrew_download_does_not_complete_the_stage(bootstrap):
+    b = bootstrap
+    (b.brew_bin / "brew").unlink()
+    b.executable(b.local_bin / "curl", "exit 7\n")
+    result = b.run("run_onchange_after_25-install-homebrew.sh.tmpl", expected_status=7)
+    assert "Homebrew installation completed" not in result.stdout
 
 
 def test_gpg_bootstrap_uses_the_shells_keyring_directory(bootstrap):
@@ -109,14 +127,53 @@ def test_gpg_bootstrap_uses_the_shells_keyring_directory(bootstrap):
     assert not (b.home / ".gnupg").exists()
 
 
-def test_failed_github_login_stops_before_git_setup(bootstrap):
+def test_failed_github_login_does_not_complete_the_stage(bootstrap):
     b = bootstrap
     b.executable(b.brew_bin / "gh", (
         'printf "%s\\n" "$*" >> "$AUDIT_ROOT/gh-calls"\n'
         'exit 7\n'
     ))
     b.run("run_onchange_after_35-github-login.sh.tmpl", expected_status=7)
-    assert not any("setup-git" in line for line in (b.root / "gh-calls").read_text().splitlines())
+    calls = (b.root / "gh-calls").read_text().splitlines()
+    assert calls[0] == "auth status --hostname github.com"
+    assert calls[1].startswith("auth login ")
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("initial_config", ["", "# en_US.UTF-8 UTF-8\n", "en_US.UTF-8 UTF-8\n"])
+def test_locale_generation_does_not_require_an_existing_locale(bootstrap, initial_config):
+    b = bootstrap
+    locale_gen = b.root / "locale.gen"
+    locale_gen.write_text(initial_config)
+    b.executable(b.brew_bin / "locale", '''
+printf 'C.utf8\n'
+if [[ -f "$AUDIT_ROOT/generated-locale" ]]; then printf 'en_US.utf8\n'; fi
+''')
+    for command in ("locale-gen", "update-locale"):
+        b.executable(b.brew_bin / command, "exit 99\n")
+    b.executable(b.brew_bin / "sudo", '''
+printf '%s\n' "$*" >> "$AUDIT_ROOT/locale-calls"
+case "$1" in
+    sh) "$@" ;;
+    locale-gen)
+        grep -Eq '^en_US.UTF-8 UTF-8$' "$AUDIT_ROOT/locale.gen"
+        touch "$AUDIT_ROOT/generated-locale" ;;
+esac
+''')
+    # Redirect only the system configuration path; the rendered script and
+    # its privileged append otherwise run unchanged in this temporary tree.
+    script = b.render(SCRIPTS / "run_onchange_after_15-setup-locale.sh.tmpl").replace(
+        "/etc/locale.gen", str(locale_gen),
+    )
+    result = subprocess.run(["/bin/bash"], input=script, env=b.env, capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stdout + result.stderr
+    calls = (b.root / "locale-calls").read_text().splitlines()
+    assert "locale-gen en_US.UTF-8" in calls
+    assert "update-locale LANG=en_US.UTF-8" in calls
+    assert locale_gen.read_text().splitlines().count("en_US.UTF-8 UTF-8") == 1
+    result = subprocess.run(["/bin/bash"], input=script, env=b.env, capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (b.root / "locale-calls").read_text().splitlines() == calls
 
 
 @pytest.mark.parametrize("name", [
@@ -197,3 +254,91 @@ def test_real_fnm_reuses_an_existing_runtime_without_downloading(bootstrap):
     result = b.run("run_onchange_after_31-setup-node.sh.tmpl")
     assert "v24.0.0" in result.stdout
     assert "11.0.0" in result.stdout
+
+
+def test_normal_apply_retries_failed_tool_setup_and_remembers_success(bootstrap):
+    b = bootstrap
+    b.data.update({
+        "is_mobile": False,
+        "homebrew": {"formulas": {"core": ["audit-tool"], "desktop": []}, "casks": {"desktop": []}},
+        "uv": {"tools": {"core": [], "desktop": []}}, "llm": {"plugins": []},
+    })
+    shellenv = 'export PATH=' + shlex.quote(str(b.brew_bin)) + ':$PATH'
+    b.executable(b.brew_bin / "brew", (
+        f'if [[ "$1" == shellenv ]]; then printf "%s\\n" {shlex.quote(shellenv)}; exit; fi\n'
+        '''
+printf '%s\n' "$*" >> "$AUDIT_ROOT/brew-calls"
+case "$1" in
+    list)
+        if [[ "$2" == --formula && -f "$AUDIT_ROOT/installed-tool" ]]; then printf 'audit-tool\n'; fi ;;
+    outdated) ;;
+    install)
+        if [[ -f "$AUDIT_ROOT/fail-install" ]]; then exit 7; fi
+        touch "$AUDIT_ROOT/installed-tool" ;;
+    *) exit 99 ;;
+esac
+'''
+    ))
+    b.executable(b.brew_bin / "uv", '[[ "$1 $2" == "tool list" ]]\n')
+    source = b.root / "source/.chezmoiscripts"
+    source.mkdir(parents=True)
+    (source / "run_onchange_after_30-install-tools.sh").write_text(
+        b.render(SCRIPTS / "run_onchange_after_30-install-tools.sh.tmpl")
+    )
+    config = b.root / "chezmoi.json"
+    config.write_text("{}")
+    args = [CHEZMOI, "--config", str(config), "--source", str(source.parent),
+            "--destination", str(b.home), "--persistent-state", str(b.root / "chezmoi-state.boltdb"),
+            "--cache", str(b.root / "cache"), "apply"]
+    failure = b.root / "fail-install"
+    failure.touch()
+    first = subprocess.run(args, env=b.env, capture_output=True, text=True, timeout=30)
+    assert first.returncode != 0, first.stdout + first.stderr
+    assert "Tool setup incomplete" in first.stderr
+    failure.unlink()
+    for attempt in range(2):
+        result = subprocess.run(args, env=b.env, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stdout + result.stderr
+    # First apply failed, second retried, third skipped the successful script.
+    calls = (b.root / "brew-calls").read_text().splitlines()
+    assert calls.count("install --formula audit-tool") == 2
+
+
+@pytest.mark.parametrize("already_registered", [False, True])
+def test_signing_registration_retries_without_recreating_the_key(bootstrap, already_registered):
+    b = bootstrap
+    b.executable(b.brew_bin / "ssh-keygen", '''
+printf 'generate\n' >> "$AUDIT_ROOT/key-generations"
+while [[ "$1" != -f ]]; do shift; done
+printf 'fixture-private-key\n' > "$2"
+printf 'ssh-ed25519 AUDITPUBLICKEY fixture\n' > "$2.pub"
+''')
+    b.executable(b.brew_bin / "gh", '''
+printf '%s\n' "$*" >> "$AUDIT_ROOT/gh-calls"
+case "$1" in
+    api)
+        if [[ -f "$AUDIT_ROOT/registered-key" ]]; then
+            printf 'ssh-ed25519 AUDITPUBLICKEY fixture\n'
+        fi ;;
+    ssh-key)
+        if [[ -f "$AUDIT_ROOT/fail-upload" ]]; then exit 7; fi
+        touch "$AUDIT_ROOT/registered-key" ;;
+    *) exit 99 ;;
+esac
+''')
+    if already_registered:
+        (b.root / "registered-key").touch()
+    else:
+        failure = b.root / "fail-upload"
+        failure.touch()
+        b.run("run_after_40-setup-git-signing-keys.sh.tmpl", expected_status=7)
+        assert not (b.root / "state/dotfiles/git-signing-key.pub").exists()
+        failure.unlink()
+    b.run("run_after_40-setup-git-signing-keys.sh.tmpl")
+    calls = (b.root / "gh-calls").read_text()
+    b.run("run_after_40-setup-git-signing-keys.sh.tmpl")
+    assert (b.root / "gh-calls").read_text() == calls
+    assert calls.count("ssh-key add") == (0 if already_registered else 2)
+    assert (b.root / "key-generations").read_text() == "generate\n"
+    assert (b.root / "state/dotfiles/git-signing-key.pub").read_text() == "ssh-ed25519 AUDITPUBLICKEY\n"
+    assert 'namespaces="git" ssh-ed25519 AUDITPUBLICKEY' in (b.root / "config/git/allowed_signers").read_text()

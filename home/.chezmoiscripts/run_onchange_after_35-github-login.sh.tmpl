@@ -15,5 +15,6 @@ if ! gh auth status --hostname $gh_host &> /dev/null; then
     --web
 fi
 
-gh auth setup-git
+# The managed Git config already uses gh auth git-credential for GitHub/gists.
+# gh auth setup-git would rewrite that chezmoi-owned file after it was applied.
 

@@ -29,7 +29,7 @@ print_warning_summary() {
         return 0
     fi
 
-    printf '\n%s%sTool setup completed with warnings:%s\n' "$color_red" "$color_bold" "$color_reset" >&2
+    printf '\n%s%sTool setup incomplete:%s\n' "$color_red" "$color_bold" "$color_reset" >&2
     for warning in "${install_warnings[@]}"; do
         printf '%s  - %s%s\n' "$color_red" "$warning" "$color_reset" >&2
     done
@@ -94,12 +94,14 @@ reconcile_brew_items() {
     local desired_array_name=$3
     local managed_file=$4
     local item item_key
+    local installed_output outdated_output
     local -n desired_items_ref="$desired_array_name"
     local -a installed_items=()
     local -a outdated_items=()
     local -a previously_managed_items=()
     local -a brew_scope_args=()
     local -a brew_list_args=()
+    local -a reconciled_items=("${desired_items_ref[@]}")
     declare -A desired_items_set=()
     declare -A installed_items_set=()
     declare -A outdated_items_set=()
@@ -113,8 +115,17 @@ reconcile_brew_items() {
         brew_list_args+=("--full-name")
     fi
 
-    mapfile -t installed_items < <(brew list "${brew_list_args[@]}")
-    mapfile -t outdated_items < <(brew outdated --quiet "${brew_scope_args[@]}" || true)
+    # Process substitutions hide command failures from set -e. Check the query
+    # status before interpreting an empty result as an empty installation.
+    if ! installed_output=$(brew list "${brew_list_args[@]}"); then
+        warn "Failed to list installed homebrew $label"
+        return
+    fi
+    mapfile -t installed_items < <(printf '%s' "$installed_output")
+    if ! outdated_output=$(brew outdated --quiet "${brew_scope_args[@]}"); then
+        warn "Failed to check outdated homebrew $label"
+    fi
+    mapfile -t outdated_items < <(printf '%s' "$outdated_output")
     read_state_file "$managed_file" previously_managed_items
 
     for item in "${installed_items[@]}"; do
@@ -159,11 +170,12 @@ reconcile_brew_items() {
             echo "Uninstalling removed $label: $item"
             if ! brew uninstall "${brew_scope_args[@]}" "$item"; then
                 warn "Failed to uninstall removed $label '$item'"
+                reconciled_items+=("$item")
             fi
         fi
     done
 
-    write_state_file "$managed_file" "${desired_items_ref[@]}"
+    write_state_file "$managed_file" "${reconciled_items[@]}"
 }
 
 normalize_uv_name() {
@@ -191,6 +203,7 @@ reconcile_uv_tools() {
     local managed_file=$2
     local -n desired_items_ref="$desired_array_name"
     local spec tool_name previous_spec
+    local installed_output outdated_output
     local -a installed_items=()
     local -a outdated_items=()
     local -a previously_managed_items=()
@@ -202,8 +215,15 @@ reconcile_uv_tools() {
     declare -A outdated_tools_set=()
     declare -A previous_specs_by_name=()
 
-    mapfile -t installed_items < <(list_uv_tools)
-    mapfile -t outdated_items < <(list_outdated_uv_tools || true)
+    if ! installed_output=$(list_uv_tools); then
+        warn "Failed to list installed uv tools"
+        return
+    fi
+    mapfile -t installed_items < <(printf '%s' "$installed_output")
+    if ! outdated_output=$(list_outdated_uv_tools); then
+        warn "Failed to check outdated uv tools"
+    fi
+    mapfile -t outdated_items < <(printf '%s' "$outdated_output")
     read_state_file "$managed_file" previously_managed_items
 
     for spec in "${desired_items_ref[@]}"; do
@@ -296,12 +316,18 @@ reconcile_llm_plugins() {
     local desired_array_name=$1
     local managed_file=$2
     local -n desired_items_ref="$desired_array_name"
+    local item installed_output
     local -a installed_items=()
     local -a previously_managed_items=()
+    local -a reconciled_items=("${desired_items_ref[@]}")
     declare -A desired_items_set=()
     declare -A installed_items_set=()
 
-    mapfile -t installed_items < <(list_llm_plugins)
+    if ! installed_output=$(list_llm_plugins); then
+        warn "Failed to list installed llm plugins"
+        return
+    fi
+    mapfile -t installed_items < <(printf '%s' "$installed_output")
     read_state_file "$managed_file" previously_managed_items
 
     for item in "${desired_items_ref[@]}"; do
@@ -329,11 +355,12 @@ reconcile_llm_plugins() {
             echo "Uninstalling removed llm plugin: $item"
             if ! llm uninstall -y "$item"; then
                 warn "Failed to uninstall removed llm plugin '$item'"
+                reconciled_items+=("$item")
             fi
         fi
     done
 
-    write_state_file "$managed_file" "${desired_items_ref[@]}"
+    write_state_file "$managed_file" "${reconciled_items[@]}"
 }
 
 desired_formulas=(
@@ -393,5 +420,9 @@ else
 fi
 {{- end }}
 
-echo "Tool installation completed."
 print_warning_summary
+if ((${#install_warnings[@]} > 0)); then
+    # Leave run_onchange unsuccessful so a normal chezmoi apply retries it.
+    exit 1
+fi
+echo "Tool installation completed."

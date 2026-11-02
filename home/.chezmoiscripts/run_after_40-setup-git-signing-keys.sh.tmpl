@@ -9,6 +9,7 @@ SSH_PUB_KEY_PATH="$SSH_KEY_PATH.pub"
 SSH_KEY_COMMENT="{{- .git_signing_key_comment -}}"
 SIGNING_PRINCIPAL="{{- .email -}}"
 ALLOWED_SIGNERS_PATH="${XDG_CONFIG_HOME:-$HOME/.config}/git/allowed_signers"
+UPLOAD_STATE="$XDG_STATE_HOME/dotfiles/git-signing-key.pub"
 
 install -d -m 700 "$HOME/.ssh"
 
@@ -24,18 +25,24 @@ else
 
     echo "Creating new SSH key for git signing..."
     ssh-keygen -t ed25519 -C "$SSH_KEY_COMMENT" -f "$SSH_KEY_PATH"
-    
-    # Add the public key to GitHub for commit/tags signing
-    echo "Uploading SSH signing key to GitHub via gh CLI..."
-    gh ssh-key add "$SSH_PUB_KEY_PATH" --title "Git signing key ($(hostname))" --type "signing"
-
-    # git config for signing is in the dotfile template
-
-    echo "Setup complete. Your commits and tags will be signed with your SSH key and verified by GitHub."
 fi
 
-if [[ -f "$SSH_PUB_KEY_PATH" ]]; then
-    mkdir -p "$(dirname "$ALLOWED_SIGNERS_PATH")"
-    SSH_PUB_KEY="$(awk '{print $1, $2}' "$SSH_PUB_KEY_PATH")"
-    printf '%s namespaces="git" %s\n' "$SIGNING_PRINCIPAL" "$SSH_PUB_KEY" > "$ALLOWED_SIGNERS_PATH"
+if [[ ! -s "$SSH_PUB_KEY_PATH" ]]; then
+    ssh-keygen -y -f "$SSH_KEY_PATH" > "$SSH_PUB_KEY_PATH"
 fi
+SSH_PUB_KEY="$(awk '{print $1, $2}' "$SSH_PUB_KEY_PATH")"
+
+# A local key can survive a failed upload. Check GitHub until registration has
+# succeeded, then cache that public key to avoid an API call on every apply.
+if [[ ! -f "$UPLOAD_STATE" ]] || [[ "$(cat "$UPLOAD_STATE")" != "$SSH_PUB_KEY" ]]; then
+    registered_keys=$(gh api --paginate user/ssh_signing_keys --jq '.[].key' | awk '{print $1, $2}')
+    if ! grep -Fxq -- "$SSH_PUB_KEY" <<< "$registered_keys"; then
+        echo "Uploading SSH signing key to GitHub via gh CLI..."
+        gh ssh-key add "$SSH_PUB_KEY_PATH" --title "Git signing key ($(hostname))" --type "signing"
+    fi
+    mkdir -p "$(dirname "$UPLOAD_STATE")"
+    printf '%s\n' "$SSH_PUB_KEY" > "$UPLOAD_STATE"
+fi
+
+mkdir -p "$(dirname "$ALLOWED_SIGNERS_PATH")"
+printf '%s namespaces="git" %s\n' "$SIGNING_PRINCIPAL" "$SSH_PUB_KEY" > "$ALLOWED_SIGNERS_PATH"

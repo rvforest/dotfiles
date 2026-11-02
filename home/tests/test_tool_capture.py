@@ -60,6 +60,11 @@ elif manager == "uv":
             print(name + " v1.0.0")
     elif not any(arg in args for arg in ("install", "upgrade", "uninstall")):
         sys.exit("Unexpected uv call: " + repr(args))
+elif manager == "llm":
+    if args == ["plugins"]:
+        print(json.dumps([{"name": name, "version": "1.0"} for name in state.get("llm", [])], indent=2))
+    elif not any(arg in args for arg in ("install", "uninstall")):
+        sys.exit("Unexpected llm call: " + repr(args))
 '''
 
 
@@ -93,17 +98,17 @@ class TestToolCapture:
         }
         for key in ("CAPTURE_TEST_EXIT",):
             self.env.pop(key, None)
-        for manager in ("brew", "uv"):
+        for manager in ("brew", "uv", "llm"):
             self.executable(self.bin / manager, f"#!{sys.executable}\n" + FAKE_MANAGER)
         # Even an unexpected bootstrap call must never download or install anything.
         self.executable(self.bin / "curl", "#!/bin/sh\nexit 99\n")
-        self.executable(self.bin / "llm", "#!/bin/sh\nexit 99\n")
         # Treat the repo's existing baseline as installed. Only the fixture's
         # new tools need simulated installs during reconciliation.
         self.installed = {
             "formulas": self.values(".homebrew.formulas.core + .homebrew.formulas.desktop"),
             "casks": [],
             "uv": self.values(".uv.tools.core"),
+            "llm": self.values(".llm.plugins"),
         }
         self.save_installed()
         self.capture_script = self.bin / "dotfiles-tool-capture"
@@ -323,7 +328,7 @@ class TestToolCapture:
         self.installed["failed_commands"] = [update]
         self.save_installed()
 
-        result = self.reconcile()
+        result = self.reconcile(expected_status=1)
         assert update in self.commands()
         assert "Failed to " in result.stderr
         assert "capture-version==2" not in managed.read_text().splitlines()
@@ -351,7 +356,7 @@ class TestToolCapture:
         uninstall = ["uv", "tool", "uninstall", "capture-removed"]
         self.installed["failed_commands"] = [uninstall]
         self.save_installed()
-        self.reconcile()
+        self.reconcile(expected_status=1)
         assert uninstall in self.commands()
         assert "capture-removed==1" in managed.read_text().splitlines()
 
@@ -361,6 +366,54 @@ class TestToolCapture:
         self.reconcile()
         assert uninstall in self.commands()
         assert "capture-removed==1" not in managed.read_text().splitlines()
+
+    @pytest.mark.parametrize(("manager", "state_name", "installed_key", "command"), [
+        ("brew", "homebrew-formulas.txt", "formulas", ["brew", "uninstall", "--formula", "capture-removed"]),
+        ("llm", "llm-plugins.txt", "llm", ["llm", "uninstall", "-y", "capture-removed"]),
+    ])
+    def test_failed_removal_remains_owned_for_retry(self, manager, state_name, installed_key, command):
+        self.state.mkdir(parents=True)
+        managed = self.state / state_name
+        managed.write_text("capture-removed\n")
+        self.installed[installed_key].append("capture-removed")
+        self.installed["failed_commands"] = [command]
+        self.save_installed()
+        self.reconcile(expected_status=1)
+        assert command in self.commands()
+        assert "capture-removed" in managed.read_text().splitlines()
+
+        self.installed["failed_commands"] = []
+        self.save_installed()
+        self.clear_commands()
+        self.reconcile()
+        assert command in self.commands()
+        assert "capture-removed" not in managed.read_text().splitlines()
+
+    @pytest.mark.parametrize(("state_name", "command"), [
+        ("homebrew-formulas.txt", ["brew", "list", "--formula", "--full-name"]),
+        ("uv-tools.txt", ["uv", "tool", "list"]),
+        ("llm-plugins.txt", ["llm", "plugins"]),
+    ])
+    def test_failed_inventory_query_does_not_overwrite_state(self, state_name, command):
+        self.state.mkdir(parents=True)
+        managed = self.state / state_name
+        managed.write_text("capture-keep-for-retry\n")
+        self.installed["failed_commands"] = [command]
+        self.save_installed()
+        result = self.reconcile(expected_status=1)
+        assert "Tool setup incomplete" in result.stderr
+        assert "Tool installation completed" not in result.stdout
+        assert managed.read_text() == "capture-keep-for-retry\n"
+
+    @pytest.mark.parametrize("command", [
+        ["brew", "outdated", "--quiet", "--formula"],
+        ["uv", "tool", "list", "--outdated"],
+    ])
+    def test_failed_outdated_query_keeps_setup_incomplete(self, command):
+        self.installed["failed_commands"] = [command]
+        self.save_installed()
+        result = self.reconcile(expected_status=1)
+        assert "Failed to check outdated" in result.stderr
 
     @pytest.mark.parametrize(("desired", "installed", "previous", "install", "uninstall"), [
         ("new/tap/capture-tool", "old/tap/capture-tool", "old/tap/capture-tool", True, True),
