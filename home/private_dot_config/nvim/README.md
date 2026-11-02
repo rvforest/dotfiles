@@ -3,6 +3,15 @@
 A starter template for [LazyVim](https://github.com/LazyVim/LazyVim).
 Refer to the [documentation](https://lazyvim.github.io/installation) to get started.
 
+# Plugin versions
+
+`lazy-lock.json` is tracked in the dotfiles repo. After applying the configuration
+on another machine, use `:Lazy restore` to install the recorded plugin revisions.
+The lockfile covers Neovim plugins; tools installed by Mason have separate versions.
+
+After an intentional plugin update, review and capture the updated lockfile with
+`chezmoi re-add ~/.config/nvim/lazy-lock.json`, then commit the change in this repo.
+
 # Python projects
 
 Start Neovim from the project directory after creating its environment with
