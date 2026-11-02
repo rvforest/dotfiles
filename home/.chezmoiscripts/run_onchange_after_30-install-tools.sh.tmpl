@@ -393,13 +393,5 @@ else
 fi
 {{- end }}
 
-# Install nvm
-nvm_dir="${XDG_DATA_HOME:-$HOME/.local/share}/nvm"
-if [[ ! -s "$nvm_dir/nvm.sh" ]]; then
-    if ! PROFILE=/dev/null curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash; then
-        warn "Failed to install nvm"
-    fi
-fi
-
 echo "Tool installation completed."
 print_warning_summary

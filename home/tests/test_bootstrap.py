@@ -5,7 +5,6 @@ These checks do not install packages or replace a complete clean-VM bootstrap.
 """
 
 import json
-import os
 from pathlib import Path
 import shlex
 import shutil
@@ -139,3 +138,62 @@ def test_first_shell_finds_homebrew_before_agent_setup(bootstrap):
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == str(b.brew_bin / "keychain")
+
+
+@pytest.mark.parametrize("existing_default", [False, True])
+def test_node_setup_installs_lts_only_when_no_default_exists(bootstrap, existing_default):
+    b = bootstrap
+    b.executable(b.brew_bin / "fnm", '''
+printf '%s\n' "$*" >> "$AUDIT_ROOT/fnm-calls"
+case "$*" in
+    'env --shell bash') printf '%s\n' 'export FNM_MULTISHELL_PATH="$AUDIT_ROOT/node"' ;;
+    'use default') test -f "$AUDIT_ROOT/default-node" ;;
+    'install --lts --use') touch "$AUDIT_ROOT/default-node" ;;
+    current) printf 'v24.0.0\n' ;;
+    'default v24.0.0') test -f "$AUDIT_ROOT/default-node" ;;
+    *) exit 99 ;;
+esac
+''')
+    for command in ("node", "npm"):
+        b.executable(b.brew_bin / command, 'test -f "$AUDIT_ROOT/default-node"\nprintf "available\\n"\n')
+    if existing_default:
+        (b.root / "default-node").touch()
+    for attempt in range(2):
+        b.run("run_onchange_after_31-setup-node.sh.tmpl")
+        calls = (b.root / "fnm-calls").read_text().splitlines()
+        assert calls.count("install --lts --use") == (0 if existing_default else 1)
+
+
+def test_node_download_failure_is_not_reported_as_success(bootstrap):
+    b = bootstrap
+    b.executable(b.brew_bin / "fnm", '''
+case "$1" in
+    env) printf '%s\n' 'export FNM_MULTISHELL_PATH="$AUDIT_ROOT/node"' ;;
+    use) exit 1 ;;
+    install) exit 7 ;;
+    *) exit 99 ;;
+esac
+''')
+    b.run("run_onchange_after_31-setup-node.sh.tmpl", expected_status=7)
+
+
+def test_real_fnm_reuses_an_existing_runtime_without_downloading(bootstrap):
+    fnm = shutil.which("fnm")
+    if not fnm:
+        pytest.skip("Requires fnm for the existing-runtime integration check")
+    b = bootstrap
+    (b.brew_bin / "fnm").symlink_to(fnm)
+    runtime = b.root / "runtime"
+    runtime.mkdir()
+    b.env.update(FNM_DIR=str(b.root / "data/fnm"), XDG_RUNTIME_DIR=str(runtime))
+    node_bin = b.root / "data/fnm/node-versions/v24.0.0/installation/bin"
+    node_bin.mkdir(parents=True)
+    b.executable(node_bin / "node", 'printf "v24.0.0\\n"\n')
+    b.executable(node_bin / "npm", 'printf "11.0.0\\n"\n')
+    result = subprocess.run(
+        [fnm, "default", "v24.0.0"], env=b.env, capture_output=True, text=True, timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    result = b.run("run_onchange_after_31-setup-node.sh.tmpl")
+    assert "v24.0.0" in result.stdout
+    assert "11.0.0" in result.stdout

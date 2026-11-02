@@ -98,9 +98,6 @@ class TestToolCapture:
         # Even an unexpected bootstrap call must never download or install anything.
         self.executable(self.bin / "curl", "#!/bin/sh\nexit 99\n")
         self.executable(self.bin / "llm", "#!/bin/sh\nexit 99\n")
-        nvm = self.root / "data/nvm/nvm.sh"
-        nvm.parent.mkdir(parents=True)
-        nvm.write_text("# Bootstrap is intentionally disabled in this fixture.\n")
         # Treat the repo's existing baseline as installed. Only the fixture's
         # new tools need simulated installs during reconciliation.
         self.installed = {

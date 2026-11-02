@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{ template "bootstrap-env.sh" . }}
+
+if ! command -v fnm >/dev/null 2>&1; then
+    echo "fnm not found; tool setup must complete before installing Node.js." >&2
+    exit 1
+fi
+
+fnm_env=$(fnm env --shell bash)
+eval "$fnm_env"
+
+# Honor an existing default. A fresh machine gets the current LTS once, rather
+# than changing Node major versions on unrelated future configuration updates.
+if ! fnm use default; then
+    fnm install --lts --use
+    fnm default "$(fnm current)"
+fi
+
+# Neovim's npm-based tools need both commands in the selected runtime.
+node --version
+npm --version
