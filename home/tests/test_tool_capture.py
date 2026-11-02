@@ -125,13 +125,18 @@ class TestToolCapture:
         return result
 
     def render(self, template, target, mobile=False, manifest=False):
-        data = {"is_mobile": mobile}
+        data = {"is_mobile": mobile, "xdg": {
+            key: str(self.root / directory) for key, directory in (
+                ("data_home", "data"), ("config_home", "config"),
+                ("state_home", "state"), ("cache_home", "cache"),
+            )
+        }}
         if manifest:
             data.update(json.loads(self.run_command([
                 "yq", "-o=json", ".", str(self.manifest),
             ]).stdout))
         result = self.run_command([
-            "chezmoi", "execute-template", "--override-data", json.dumps(data),
+            "chezmoi", "--source", str(ROOT), "execute-template", "--override-data", json.dumps(data),
         ], input=template.read_text())
         self.executable(target, result.stdout)
 
@@ -166,10 +171,15 @@ class TestToolCapture:
     def capture(self, manager, answers=""):
         return self.run_command([str(self.capture_script), manager], input=answers)
 
-    def reconcile(self, mobile=False):
+    def reconcile(self, mobile=False, expected_status=0):
         script = self.root / "installer.sh"
         self.render(INSTALLER, script, mobile=mobile, manifest=True)
-        return self.run_command(["bash", str(script)])
+        result = subprocess.run(
+            ["bash", str(script)], env={**self.env, "HOME": str(self.root / "home")},
+            text=True, capture_output=True, timeout=60,
+        )
+        assert result.returncode == expected_status, result.stdout + result.stderr
+        return result
 
     def test_brew_scopes_dependencies_aliases_and_repeat(self):
         self.formula("capture-core")

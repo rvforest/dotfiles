@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+{{ template "bootstrap-env.sh" . }}
+
 # Colors for high-visibility warnings/summaries.
 if [[ -t 1 ]]; then
     color_yellow=$'\033[33m'
@@ -31,20 +33,6 @@ print_warning_summary() {
     for warning in "${install_warnings[@]}"; do
         printf '%s  - %s%s\n' "$color_red" "$warning" "$color_reset" >&2
     done
-}
-
-load_homebrew() {
-    if command -v brew >/dev/null 2>&1; then
-        return 0
-    fi
-
-    if [[ -d "/home/linuxbrew/.linuxbrew" ]]; then
-        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-    elif [[ -d "$HOME/.linuxbrew" ]]; then
-        eval "$("$HOME/.linuxbrew/bin/brew" shellenv)"
-    fi
-
-    command -v brew >/dev/null 2>&1
 }
 
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
@@ -384,7 +372,7 @@ desired_llm_plugins=(
 {{- end }}
 )
 
-if load_homebrew; then
+if command -v brew >/dev/null 2>&1; then
     reconcile_brew_items "--formula" "formula" desired_formulas "$managed_formulas_file"
     reconcile_brew_items "--cask" "cask" desired_casks "$managed_casks_file"
 else

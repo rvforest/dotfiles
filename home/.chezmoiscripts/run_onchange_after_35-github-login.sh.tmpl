@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
+{{ template "bootstrap-env.sh" . }}
+
 gh_host=github.com
 # If not logged in, then log in with web browser
 if ! gh auth status --hostname $gh_host &> /dev/null; then

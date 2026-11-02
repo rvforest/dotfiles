@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+{{ template "bootstrap-env.sh" . }}
+
 if ! command -v nu >/dev/null 2>&1; then
-	echo "Nushell not found, skipping nushell package reconciliation."
-	exit 0
+	echo "Nushell not found; tool setup must complete before installing Nushell packages." >&2
+	exit 1
 fi
 
 nupm_module_path="${XDG_DATA_HOME:-$HOME/.local/share}/nushell/vendor/nupm/nupm.nu"
 if [[ ! -f "$nupm_module_path" ]]; then
-	echo "nupm module not found at $nupm_module_path, skipping nushell package reconciliation."
-	exit 0
+	echo "nupm module not found at $nupm_module_path; apply the managed external assets first." >&2
+	exit 1
 fi
 
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"

@@ -3,11 +3,18 @@
 
 set -euo pipefail
 
+{{ template "bootstrap-env.sh" . }}
+
 NAME="{{ .name }}"
 EMAIL="{{ .email }}"
 STORE_DIR="{{ .xdg.data_home }}/pass"
 
 export PASSWORD_STORE_DIR="$STORE_DIR"
+
+# Bootstrap may be running from bash before zsh has initialized the agent.
+if [[ -t 0 ]]; then
+  export GPG_TTY="$(tty)"
+fi
 
 # Dependency check
 for cmd in gpg pass; do

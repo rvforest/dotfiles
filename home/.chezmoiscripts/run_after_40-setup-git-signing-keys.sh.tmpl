@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+{{ template "bootstrap-env.sh" . }}
+
 SSH_KEY_PATH="$HOME/.ssh/{{- .git_signing_key -}}"
 SSH_PUB_KEY_PATH="$SSH_KEY_PATH.pub"
 SSH_KEY_COMMENT="{{- .git_signing_key_comment -}}"

@@ -1,5 +1,7 @@
 # 10-path.zsh — PATH and path-like variables
 
+{{ template "homebrew-env.sh" . }}
+
 path_prepend() {
   for p in "$@"; do
     [[ -n $p && -d $p ]] || continue
