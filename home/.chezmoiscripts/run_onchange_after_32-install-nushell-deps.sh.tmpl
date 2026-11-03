@@ -8,9 +8,9 @@ if ! command -v nu >/dev/null 2>&1; then
 	exit 1
 fi
 
-nupm_module_path="${XDG_DATA_HOME:-$HOME/.local/share}/nushell/vendor/nupm/nupm.nu"
-if [[ ! -f "$nupm_module_path" ]]; then
-	echo "nupm module not found at $nupm_module_path; apply the managed external assets first." >&2
+nupm_module_path="${XDG_DATA_HOME:-$HOME/.local/share}/nushell/vendor/nupm/nupm"
+if [[ ! -f "$nupm_module_path/mod.nu" ]]; then
+	echo "nupm module not found at $nupm_module_path/mod.nu; check the managed external checkout." >&2
 	exit 1
 fi
 
@@ -69,7 +69,7 @@ sync_repo_checkout() {
 install_nupm_package() {
 	local checkout_path=$1
 
-	nu -c "use \"$nupm_module_path\" *; nupm install \"$checkout_path\" --force --path"
+	nu -c "use \"$nupm_module_path\"; nupm install \"$checkout_path\" --force --path --no-confirm"
 }
 
 desired_git_repos=(

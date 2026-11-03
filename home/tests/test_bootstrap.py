@@ -69,7 +69,7 @@ def bootstrap(tmp_path):
 
 def test_later_scripts_find_tools_without_shell_startup(bootstrap):
     b = bootstrap
-    module = b.root / "data/nushell/vendor/nupm/nupm.nu"
+    module = b.root / "data/nushell/vendor/nupm/nupm/mod.nu"
     module.parent.mkdir(parents=True)
     module.touch()
     b.data["nupm"] = {"git_repos": []}
