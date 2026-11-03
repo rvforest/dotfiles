@@ -49,6 +49,24 @@ An existing working fnm default is preserved. A new Node default is installed
 only if one is missing; Node major upgrades remain an explicit choice. Older nvm
 installations are left on disk but are no longer loaded by this configuration.
 
+## Pi coding agent
+
+On non-mobile machines, setup installs Pi using its managed installer and a
+separate Node runtime under `~/.local/share/dotfiles/pi-fnm`. Project Node
+versions continue to use the normal fnm installation. The setup skips an
+existing Pi installation it does not own. To update Pi, run `pi update`; to
+update its Node runtime, change `node_version` in
+`home/.chezmoiscripts/run_after_41-setup-pi.sh.tmpl` and apply again. Pi puts
+its Node runtime on PATH for its own child commands as well, so commands it
+runs may see that version instead of the project's fnm version.
+
+Pi defaults to OpenRouter when no provider is already configured, and reads
+`keys/openrouter/pi` from pass when needed. Restore the existing password store or
+add the key with `pass insert keys/openrouter/pi`, then start `pi` and select a
+model with `/model`. Existing Pi provider settings and custom credentials are
+kept; the previous dotfiles-provided shared key command is migrated. The `llm`
+command uses `keys/openrouter/llm`.
+
 ## Prompts during setup
 
 Stay at the terminal to handle:
