@@ -110,7 +110,7 @@ Then apply:
 ```
 
 For a new password store, add service credentials yourself. For example, the
-`please` shell helper requires `pass insert keys/openrouter`. Account credentials
+`please` shell helper requires `pass insert keys/openrouter/llm`. Account credentials
 and encrypted secret backups are not supplied by this repository.
 
 ## Finish the machine setup
@@ -158,7 +158,7 @@ npm --version
 gpg --list-secret-keys
 ```
 
-Verify that `pass show keys/openrouter` decrypts successfully in a private terminal
+Verify that `pass show keys/openrouter/llm` decrypts successfully in a private terminal
 if you use `please`; that command displays the secret. Check Git signing on the
 first commit from the new machine.
 

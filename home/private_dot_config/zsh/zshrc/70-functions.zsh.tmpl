@@ -89,8 +89,8 @@ source "${XDG_CONFIG_HOME:-$HOME/.config}/direnv/lib/secrets.sh"
 
 function llm() {
   local openrouter_key
-  if ! openrouter_key="$(load_secret keys/openrouter)"; then
-    print -r -- "Error: Could not load keys/openrouter from pass." >&2
+  if ! openrouter_key="$(load_secret keys/openrouter/llm)"; then
+    print -r -- "Error: Could not load keys/openrouter/llm from pass." >&2
     return 1
   fi
   OPENROUTER_KEY="$openrouter_key" command llm "$@"
