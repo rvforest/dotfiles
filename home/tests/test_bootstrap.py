@@ -234,75 +234,36 @@ esac
     b.run("run_onchange_after_31-setup-node.sh.tmpl", expected_status=7)
 
 
-def test_pi_setup_preserves_existing_configuration_and_reuses_runtime(bootstrap):
+@pytest.mark.parametrize("is_mobile", [False, True])
+def test_npm_packages_use_default_runtime_and_install_only_when_missing(bootstrap, is_mobile):
     b = bootstrap
-    b.data["is_mobile"] = False
-    (b.brew_bin / "jq").symlink_to(shutil.which("jq"))
-    node_bin = b.root / "data/dotfiles/pi-fnm/node-versions/v24.16.0/installation/bin"
-    node_bin.mkdir(parents=True)
-    for name in ("node", "npm"):
-        b.executable(node_bin / name, "exit 0\n")
-    agent = b.home / ".pi/agent"
-    (agent / "install").mkdir(parents=True)
-    (agent / "install/managed-install.json").write_text('{}\n')
-    (agent / "auth.json").write_text('{"other": {"key": "keep"}}\n')
-    (agent / "settings.json").write_text('{"defaultProvider": "other", "theme": "dark"}\n')
-    b.run("run_after_41-setup-pi.sh.tmpl")
-    assert (b.root / "data/pi-node/current").resolve() == node_bin.parent
-    assert json.loads((agent / "auth.json").read_text()) == {
-        "other": {"key": "keep"},
-        "openrouter": {"type": "api_key", "key": "!pass show keys/openrouter/pi"},
-    }
-    assert json.loads((agent / "settings.json").read_text()) == {
-        "defaultProvider": "other", "theme": "dark",
-    }
-    (agent / "auth.json").write_text('{"openrouter": {"type": "api_key", "key": "!pass show keys/openrouter", "extra": true}}\n')
-    b.run("run_after_41-setup-pi.sh.tmpl")
-    assert json.loads((agent / "auth.json").read_text())["openrouter"] == {
-        "type": "api_key", "key": "!pass show keys/openrouter/pi", "extra": True,
-    }
-    (agent / "auth.json").write_text('{"openrouter": {"type": "api_key", "key": "existing"}}\n')
-    b.run("run_after_41-setup-pi.sh.tmpl")
-    assert json.loads((agent / "auth.json").read_text())["openrouter"]["key"] == "existing"
-
-
-def test_pi_setup_does_not_take_over_existing_pi(bootstrap):
-    b = bootstrap
-    b.data["is_mobile"] = False
-    b.executable(b.local_bin / "pi", "exit 0\n")
-    result = b.run("run_after_41-setup-pi.sh.tmpl")
-    assert "leaving that installation" in result.stderr
-    assert not (b.home / ".pi").exists()
-
-
-def test_pi_setup_installs_with_dedicated_node(bootstrap):
-    b = bootstrap
-    b.data["is_mobile"] = False
-    (b.brew_bin / "jq").symlink_to(shutil.which("jq"))
+    b.data.update({"is_mobile": is_mobile, "npm": {"packages": {
+        "core": ["@softov/ahpc"], "desktop": ["desktop-cli"],
+    }}})
     b.executable(b.brew_bin / "fnm", '''
-test "$1" = install
-mkdir -p "$FNM_DIR/node-versions/$2/installation/bin"
-for name in node npm; do
-    printf '#!/bin/sh\\nexit 0\\n' > "$FNM_DIR/node-versions/$2/installation/bin/$name"
-    chmod +x "$FNM_DIR/node-versions/$2/installation/bin/$name"
-done
+case "$*" in
+    'env --shell bash') printf '%s\n' 'export DEFAULT_NODE_ACTIVE=1' ;;
+    'use default') ;;
+    *) exit 99 ;;
+esac
 ''')
-    b.executable(b.local_bin / "curl", '''
-while [ "$1" != -o ]; do shift; done
-cat > "$2" <<'INSTALLER'
-#!/bin/sh
-command -v node > "$AUDIT_ROOT/pi-node-path"
-mkdir -p "$PI_CODING_AGENT_DIR/install"
-printf '{}\\n' > "$PI_CODING_AGENT_DIR/install/managed-install.json"
-INSTALLER
+    b.executable(b.brew_bin / "node", "exit 0\n")
+    b.executable(b.brew_bin / "npm", '''
+test "$DEFAULT_NODE_ACTIVE" = 1
+case "$1" in
+    --version) ;;
+    list) grep -Fxq -- "$4" "$AUDIT_ROOT/npm-installed" ;;
+    install)
+        printf '%s\n' "$3" >> "$AUDIT_ROOT/npm-installed" ;;
+    *) exit 99 ;;
+esac
 ''')
-    b.run("run_after_41-setup-pi.sh.tmpl")
-    assert (b.root / "pi-node-path").read_text().strip() == str(
-        b.root / "data/dotfiles/pi-fnm/node-versions/v24.16.0/installation/bin/node"
+    (b.root / "npm-installed").touch()
+    for attempt in range(2):
+        b.run("run_onchange_after_31-setup-node.sh.tmpl")
+    assert (b.root / "npm-installed").read_text().splitlines() == (
+        ["@softov/ahpc"] if is_mobile else ["@softov/ahpc", "desktop-cli"]
     )
-    agent = b.home / ".pi/agent"
-    assert json.loads((agent / "settings.json").read_text())["defaultProvider"] == "openrouter"
-    assert json.loads((agent / "auth.json").read_text())["openrouter"]["key"] == "!pass show keys/openrouter/pi"
 
 
 def test_real_fnm_reuses_an_existing_runtime_without_downloading(bootstrap):

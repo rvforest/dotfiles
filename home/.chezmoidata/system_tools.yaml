@@ -87,6 +87,14 @@ uv:
     desktop:
       # dotfiles-tool-capture: uv-tools-desktop
 
+npm:
+  # Global CLI packages installed in fnm's default Node runtime.
+  packages:
+    core:
+      - '@softov/ahpc'
+    desktop:
+      - '@earendil-works/pi-coding-agent'
+
 llm:
   plugins:
     - llm-cmd

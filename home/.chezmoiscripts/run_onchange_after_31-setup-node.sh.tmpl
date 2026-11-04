@@ -21,3 +21,21 @@ fi
 # Neovim's npm-based tools need both commands in the selected runtime.
 node --version
 npm --version
+
+# Keep ordinary npm CLIs declarative. Install missing packages without upgrading
+# existing installations on unrelated dotfiles changes.
+packages=(
+{{- range .npm.packages.core }}
+    {{ . | quote }}
+{{- end }}
+{{- if not .is_mobile }}
+{{- range .npm.packages.desktop }}
+    {{ . | quote }}
+{{- end }}
+{{- end }}
+)
+for package in "${packages[@]}"; do
+    if ! npm list --global --depth=0 "$package" >/dev/null 2>&1; then
+        npm install --global "$package"
+    fi
+done

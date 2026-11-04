@@ -2,6 +2,11 @@
 tests
 tests/**
 
+{{ if .is_mobile }}
+.pi
+.pi/**
+{{ end }}
+
 !.oh-my-zsh/plugins
 !.local/share/oh-my-zsh/plugins/aliases
 !.local/share/oh-my-zsh/plugins/aliases/**

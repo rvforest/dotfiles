@@ -1,0 +1,6 @@
+{
+  "openrouter": {
+    "type": "api_key",
+    "key": "!pass show keys/openrouter/pi"
+  }
+}
