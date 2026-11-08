@@ -116,6 +116,9 @@ function please() {
   local sys_prompt
   local user_prompt
   local resp
+  local operating_system="$(uname -s)"
+  [[ "$operating_system" == "Darwin" ]] && operating_system="macOS"
+  local response_schema='{"type":"object","properties":{"explanation":{"type":"string"},"warning":{"type":"string"},"command":{"type":"string"}},"required":["explanation","warning","command"],"additionalProperties":false}'
 
   # --- System Prompt with Dynamic Explanation Instructions ---
   sys_prompt=$(cat << EOF
@@ -132,7 +135,7 @@ EOF
 
   # --- User Prompt ---
   user_prompt=$(cat << EOF
-Operating System/Shell: macOS/zsh
+Operating System/Shell: $operating_system/zsh
 
 <user_goal>
 $user_goal
@@ -143,7 +146,7 @@ EOF
 )
 
   # Fetch from LLM
-  if ! resp=$(llm "$user_prompt" -s "$sys_prompt"); then
+  if ! resp=$(llm "$user_prompt" -s "$sys_prompt" --schema "$response_schema"); then
     print -r -- "Error: Could not generate a command." >&2
     return 1
   fi

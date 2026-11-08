@@ -16,7 +16,11 @@ def run_please(tmp_path, response, llm_status=0):
     definition = "function please()" + FUNCTIONS.read_text().split("function please()", 1)[1]
     script = """
 setopt promptsubst
-llm() { print -r -- "$AUDIT_RESPONSE"; return "$AUDIT_LLM_STATUS"; }
+llm() {
+  print -r -- "$@" > "$AUDIT_ARGS"
+  print -r -- "$AUDIT_RESPONSE"
+  return "$AUDIT_LLM_STATUS"
+}
 """ + definition + """
 please -e list files
 result=$?
@@ -28,7 +32,8 @@ exit $result
     return subprocess.run(
         ["zsh", "-f"], input=script, text=True, capture_output=True, timeout=15,
         env={**os.environ, "AUDIT_RESPONSE": response, "AUDIT_LLM_STATUS": str(llm_status),
-             "AUDIT_MARKER": str(tmp_path / "executed")},
+             "AUDIT_MARKER": str(tmp_path / "executed"),
+             "AUDIT_ARGS": str(tmp_path / "llm-args")},
     )
 
 
@@ -65,6 +70,19 @@ def test_failed_model_call_never_queues_a_command(tmp_path):
     assert result.returncode != 0
     assert "Could not generate" in result.stderr
     assert "QUEUED=" not in result.stdout
+
+
+def test_please_requests_schema_and_current_os(tmp_path):
+    response = json.dumps({"command": "printf safe", "warning": "", "explanation": ""})
+    result = run_please(tmp_path, response)
+    assert result.returncode == 0, result.stderr
+    arguments = (tmp_path / "llm-args").read_text()
+    system = "macOS" if os.uname().sysname == "Darwin" else os.uname().sysname
+    assert f"Operating System/Shell: {system}/zsh" in arguments
+    schema = json.loads(arguments.split(" --schema ", 1)[1])
+    assert set(schema["required"]) == {"explanation", "warning", "command"}
+    assert all(field == {"type": "string"} for field in schema["properties"].values())
+    assert schema["additionalProperties"] is False
 
 
 def test_opening_editor_does_not_run_uv(tmp_path):
