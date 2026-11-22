@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{ template "bootstrap-env.sh" . }}
+
+# Use the declaratively installed executable, never a project/Corepack shim.
+pnpm="$PNPM_HOME/cli/pnpm"
+if [[ ! -x "$pnpm" ]]; then
+    echo "Standalone pnpm is missing; apply the pnpm external asset first (Linux x64/arm64)." >&2
+    exit 1
+fi
+
+command -v jq >/dev/null 2>&1 || { echo "jq is required for pnpm setup." >&2; exit 1; }
+
+# Avoid inheriting the invoking project's package-manager settings.
+mkdir -p "$PNPM_HOME"
+cd "$PNPM_HOME"
+
+# Keep one runtime outside fnm. Disabling project-aware shims also prevents its
+# node command from following a project's .nvmrc when used by a global CLI.
+export PNPM_CONFIG_GLOBAL_SHIMS=false
+node_version={{ .pnpm.node_version | quote }}
+if [[ ! -x "$PNPM_HOME/bin/node" ]] ||
+    [[ $("$PNPM_HOME/bin/node" --version) != v"$node_version".* ]]; then
+    "$pnpm" add --global "node@$node_version"
+fi
+
+packages=(
+{{- range .pnpm.packages.core }}
+    {{ . | quote }}
+{{- end }}
+{{- if not .is_mobile }}
+{{- range .pnpm.packages.desktop }}
+    {{ . | quote }}
+{{- end }}
+{{- end }}
+)
+installed=$("$pnpm" list --global --json)
+for package in "${packages[@]}"; do
+    if ! jq -e --arg package "$package" \
+        'any(.[]; .dependencies[$package] != null)' <<< "$installed" >/dev/null; then
+        "$pnpm" add --global "$package"
+    fi
+done
+
+# Retire only the migrated packages in fnm's default installation, after all
+# pnpm installs succeed. Other npm globals and other Node versions stay local.
+if command -v fnm >/dev/null 2>&1; then
+    (
+        fnm_env=$(fnm env --shell bash)
+        eval "$fnm_env"
+        fnm use default
+        for package in "${packages[@]}"; do
+            if npm list --global --depth=0 "$package" >/dev/null 2>&1; then
+                npm uninstall --global "$package"
+            fi
+        done
+    )
+fi

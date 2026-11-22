@@ -54,14 +54,16 @@ installations are left on disk but are no longer loaded by this configuration.
 
 ## Pi coding agent
 
-On non-mobile machines, setup installs Pi using its managed installer and a
-separate Node runtime under `~/.local/share/dotfiles/pi-fnm`. Project Node
-versions continue to use the normal fnm installation. The setup skips an
-existing Pi installation it does not own. To update Pi, run `pi update`; to
-update its Node runtime, change `node_version` in
-`home/.chezmoiscripts/run_after_41-setup-pi.sh.tmpl` and apply again. Pi puts
-its Node runtime on PATH for its own child commands as well, so commands it
-runs may see that version instead of the project's fnm version.
+On non-mobile machines, setup installs Pi and Codex as pnpm globals. The global
+package list, standalone pnpm release, and Node major are declared in
+`home/.chezmoidata/system_tools.yaml`. Chezmoi downloads the standalone pnpm
+archive for Linux x64/ARM64; no npm-global pnpm installation is needed.
+
+Global CLI tools share a pnpm-managed Node runtime outside fnm. Project Node
+versions continue to use fnm. Setup installs missing global packages without
+upgrading existing ones, then removes the migrated packages from fnm's default
+npm installation. Other npm globals and Node versions are left alone. Run
+`pnpm update -g` deliberately to update global tools.
 
 Pi defaults to OpenRouter when no provider is already configured, and reads
 `keys/openrouter/pi` from pass when needed. Restore the existing password store or
@@ -75,6 +77,8 @@ command uses `keys/openrouter/llm`.
 Stay at the terminal to handle:
 
 - sudo authentication and the Homebrew installer's confirmation;
+- a one-time opt-in to make system zsh the login shell (default: no), and the
+  account password for `chsh` if enabled;
 - GitHub's browser/device authentication on a new machine (open the displayed URL
   on another device when connected over SSH);
 - a passphrase for a newly generated Git signing key;
@@ -138,7 +142,11 @@ and encrypted secret backups are not supplied by this repository.
 
 These steps depend on the machine, account, or terminal client:
 
-- **Login shell:** run `chsh -s "$(command -v zsh)"`, then reconnect or log in again.
+- **Login shell:** opt in during initialization, then reconnect or log in again.
+  For an existing installation, run `chezmoi init` to answer the new prompt.
+  To revisit a saved choice, run `chezmoi init --prompt`. You can also
+  set `data.set_login_shell = true` in the chezmoi config and apply.
+  To change it manually, run `chsh -s /usr/bin/zsh`.
   Use `exec zsh -l` to start it immediately in the current terminal. Codespaces,
   VS Code, or a WSL terminal profile may also need zsh selected in their settings.
 - **Remote access:** install/configure the SSH server, authorized keys, Tailscale,
@@ -172,7 +180,8 @@ not roll back earlier work when a later stage fails.
 From a new zsh session, check the pieces you need:
 
 ```sh
-command -v brew uv gh fnm node npm nu pre-commit nvim
+command -v brew uv gh fnm node npm pnpm nu pre-commit nvim
+pnpm list -g
 gh auth status
 node --version
 npm --version

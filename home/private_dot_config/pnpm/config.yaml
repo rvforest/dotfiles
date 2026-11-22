@@ -1,0 +1,2 @@
+# fnm owns project runtime selection. Global tools always use the global runtime.
+globalShims: false

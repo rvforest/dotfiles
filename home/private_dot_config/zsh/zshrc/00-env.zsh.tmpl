@@ -7,9 +7,6 @@ export XDG_CONFIG_HOME="{{ .xdg.config_home }}"
 export XDG_CACHE_HOME="{{ .xdg.cache_home }}"
 export XDG_STATE_HOME="{{ .xdg.state_home }}"
 
-# oh-my-zsh install location
-export ZSH="$XDG_CONFIG_HOME/zsh/oh-my-zsh"
-
 # ZSH env vars
 export ZSH="$XDG_DATA_HOME/oh-my-zsh"
 export ZSH_COMPDUMP="$XDG_CACHE_HOME/zsh/.zcompdump"
@@ -37,8 +34,8 @@ export GNUPGHOME="$XDG_DATA_HOME/gnupg"
 # npm XDG compliance
 export NPM_CONFIG_USERCONFIG="$XDG_CONFIG_HOME/npm/npmrc"
 export NPM_CONFIG_CACHE="$XDG_CACHE_HOME/npm"
-# For global installs (optional, set in npmrc):
-# prefix=$XDG_DATA_HOME/npm
+# User-wide CLI tools live outside fnm-managed Node installations.
+export PNPM_HOME="$XDG_DATA_HOME/pnpm"
 
 # pass XDG compliance
 export PASSWORD_STORE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pass"

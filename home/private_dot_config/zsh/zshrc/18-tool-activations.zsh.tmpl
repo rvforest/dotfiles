@@ -12,9 +12,11 @@ if command -v atuin >/dev/null 2>&1; then
     zvm_after_init_commands+=('eval "$(atuin init zsh)"')
 fi
 {{- end }}
-if [[ -z ${__DOTFILES_ZOXIDE_INIT_DONE-} ]]; then
+if command -v zoxide >/dev/null 2>&1 && [[ -z ${__DOTFILES_ZOXIDE_INIT_DONE-} ]]; then
     eval "$(zoxide init zsh)"
     typeset -g __DOTFILES_ZOXIDE_INIT_DONE=1
 fi
 
-eval "$(fnm env --use-on-cd --shell zsh)"
+if command -v fnm >/dev/null 2>&1; then
+    eval "$(fnm env --use-on-cd --shell zsh)"
+fi

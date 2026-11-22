@@ -1,6 +1,12 @@
 # 90-completions.zsh — Shell completions
 
-eval "$(uv generate-shell-completion zsh)"
-eval "$(uvx --generate-shell-completion zsh)"
+if command -v uv >/dev/null 2>&1; then
+  eval "$(uv generate-shell-completion zsh)"
+fi
+if command -v uvx >/dev/null 2>&1; then
+  eval "$(uvx --generate-shell-completion zsh)"
+fi
 
-eval "$(chezmoi completion zsh)"
+if command -v chezmoi >/dev/null 2>&1; then
+  eval "$(chezmoi completion zsh)"
+fi

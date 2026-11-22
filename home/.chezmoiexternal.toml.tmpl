@@ -101,3 +101,23 @@
   executable = true
   refreshPeriod = "168h"
 {{- end }}
+
+{{- /* Native pnpm includes its dist/ tree and does not depend on fnm's Node. */}}
+{{- if and (eq .chezmoi.os "linux") (or (eq .chezmoi.arch "amd64") (eq .chezmoi.arch "arm64")) }}
+{{- $pnpmArch := "x64" }}
+{{- if eq .chezmoi.arch "arm64" }}{{ $pnpmArch = "arm64" }}{{ end }}
+# npm publishes the same native executable and dist tree without the hard links
+# in GitHub release tarballs, which chezmoi's archive reader cannot handle.
+[".local/share/pnpm/cli/pnpm"]
+    type = "archive-file"
+    url = "https://registry.npmjs.org/@pnpm/exe.linux-{{ $pnpmArch }}/-/exe.linux-{{ $pnpmArch }}-{{ .pnpm.version }}.tgz"
+    path = "package/pnpm"
+    executable = true
+
+[".local/share/pnpm/cli/dist"]
+    type = "archive"
+    url = "https://registry.npmjs.org/pnpm/-/pnpm-{{ .pnpm.version }}.tgz"
+    stripComponents = 2
+    include = ["package/dist/**"]
+    exact = true
+{{- end }}

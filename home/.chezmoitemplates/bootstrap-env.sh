@@ -10,3 +10,6 @@ export PASSWORD_STORE_DIR="$XDG_DATA_HOME/pass"
 {{ template "homebrew-env.sh" . }}
 # uv puts tool executables here, including llm and pre-commit.
 export PATH="$HOME/.local/bin:$PATH:/usr/local/sbin:/usr/sbin:/sbin"
+
+export PNPM_HOME="$XDG_DATA_HOME/pnpm"
+export PATH="$PNPM_HOME/cli:$PNPM_HOME/bin:$PATH"

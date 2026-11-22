@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{- if and (eq .chezmoi.os "linux") (hasKey . "set_login_shell") }}
+{{- if .set_login_shell }}
+# Prefer the apt-managed shell, whose path survives Homebrew upgrades.
+login_shell=''
+for candidate in /usr/bin/zsh /bin/zsh; do
+    if [[ -x "$candidate" ]] && grep -Fxq "$candidate" /etc/shells; then
+        login_shell=$candidate
+        break
+    fi
+done
+if [[ -z "$login_shell" ]]; then
+    echo "No system zsh registered in /etc/shells; install the apt zsh package first." >&2
+    exit 1
+fi
+
+# SHELL describes the current session and can be stale after a successful chsh.
+account=$(id -un)
+passwd_entry=$(getent passwd "$account")
+current_shell=${passwd_entry##*:}
+if [[ "$current_shell" == "$login_shell" || "$current_shell" -ef "$login_shell" ]]; then
+    echo "Login shell is already zsh."
+    exit 0
+fi
+
+# chsh may request the account password. Never change other accounts or /etc/shells.
+echo "Changing $account's login shell to $login_shell..."
+chsh -s "$login_shell"
+echo "Login shell updated. Reconnect or log in again to use zsh."
+{{- end }}
+{{- end }}

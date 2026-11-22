@@ -49,6 +49,7 @@ umask = 0o022
     is_headless = {{ $is_headless }}
     is_mobile = {{ $is_mobile }}
     is_wsl = {{ $is_wsl }}
+    set_login_shell = {{ promptBoolOnce . "set_login_shell" "Use zsh as your login shell? [y/n; Enter means no]" false }}
     hostname = {{ $hostname | quote }}
 
     git_signing_key = "id_git_signing"

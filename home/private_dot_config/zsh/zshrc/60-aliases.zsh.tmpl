@@ -15,8 +15,13 @@ alias zr='zellij run'
 alias ze='zellij edit'
 
 # Misc tools
-alias bat=batcat
-alias fd=fdfind
+# Homebrew uses the upstream names; Debian packages may use alternate names.
+if ! command -v bat >/dev/null 2>&1 && command -v batcat >/dev/null 2>&1; then
+  alias bat=batcat
+fi
+if ! command -v fd >/dev/null 2>&1 && command -v fdfind >/dev/null 2>&1; then
+  alias fd=fdfind
+fi
 alias v=vim
 
 # Git

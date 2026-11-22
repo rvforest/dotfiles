@@ -235,35 +235,66 @@ esac
 
 
 @pytest.mark.parametrize("is_mobile", [False, True])
-def test_npm_packages_use_default_runtime_and_install_only_when_missing(bootstrap, is_mobile):
+def test_pnpm_globals_install_only_missing_packages_outside_fnm(bootstrap, is_mobile):
     b = bootstrap
-    b.data.update({"is_mobile": is_mobile, "npm": {"packages": {
+    b.data.update({"is_mobile": is_mobile, "pnpm": {"node_version": "24", "packages": {
         "core": ["@softov/ahpc"], "desktop": ["desktop-cli"],
     }}})
-    b.executable(b.brew_bin / "fnm", '''
+    jq = shutil.which("jq")
+    assert jq, "Requires jq to check the real package-list filter"
+    (b.brew_bin / "jq").symlink_to(jq)
+    cli = b.root / "data/pnpm/cli"
+    cli.mkdir(parents=True)
+    b.executable(cli / "pnpm", r'''
+ test "$PNPM_CONFIG_GLOBAL_SHIMS" = false
+ test "$PWD" = "$PNPM_HOME"
+ printf '%s\n' "$*" >> "$AUDIT_ROOT/pnpm-calls"
+ case "$1" in
+     list)
+         python3 -c 'import json, os; print(json.dumps([{"dependencies": {p: {} for p in open(os.environ["AUDIT_ROOT"] + "/pnpm-installed").read().splitlines()}}]))'
+         ;;
+     add)
+         if [[ "$3" = node@24 ]]; then
+             mkdir -p "$PNPM_HOME/bin"
+             printf '#!/bin/sh\nprintf "v24.0.0\\n"\n' > "$PNPM_HOME/bin/node"
+             chmod +x "$PNPM_HOME/bin/node"
+         else
+             printf '%s\n' "$3" >> "$AUDIT_ROOT/pnpm-installed"
+         fi
+         ;;
+     *) exit 99 ;;
+ esac
+''')
+    b.executable(b.brew_bin / "fnm", r'''
 case "$*" in
-    'env --shell bash') printf '%s\n' 'export DEFAULT_NODE_ACTIVE=1' ;;
+    'env --shell bash') printf '%s\n' 'export MIGRATING_DEFAULT_NODE=1' ;;
     'use default') ;;
     *) exit 99 ;;
 esac
 ''')
-    b.executable(b.brew_bin / "node", "exit 0\n")
-    b.executable(b.brew_bin / "npm", '''
-test "$DEFAULT_NODE_ACTIVE" = 1
+    b.executable(b.brew_bin / "npm", r'''
+test "$MIGRATING_DEFAULT_NODE" = 1
 case "$1" in
-    --version) ;;
     list) grep -Fxq -- "$4" "$AUDIT_ROOT/npm-installed" ;;
-    install)
-        printf '%s\n' "$3" >> "$AUDIT_ROOT/npm-installed" ;;
+    uninstall)
+        grep -Fxq -- "$3" "$AUDIT_ROOT/pnpm-installed"
+        printf '%s\n' "$3" >> "$AUDIT_ROOT/npm-removed"
+        sed -i "\|^$3$|d" "$AUDIT_ROOT/npm-installed" ;;
     *) exit 99 ;;
 esac
 ''')
-    (b.root / "npm-installed").touch()
+    (b.root / "npm-installed").write_text("@softov/ahpc\nunrelated-cli\n")
+    (b.root / "pnpm-installed").write_text("@softov/ahpc\n")
     for attempt in range(2):
-        b.run("run_onchange_after_31-setup-node.sh.tmpl")
-    assert (b.root / "npm-installed").read_text().splitlines() == (
+        b.run("run_onchange_after_31-setup-pnpm.sh.tmpl")
+    assert (b.root / "pnpm-installed").read_text().splitlines() == (
         ["@softov/ahpc"] if is_mobile else ["@softov/ahpc", "desktop-cli"]
     )
+    calls = (b.root / "pnpm-calls").read_text().splitlines()
+    assert (b.root / "npm-removed").read_text().splitlines() == ["@softov/ahpc"]
+    assert (b.root / "npm-installed").read_text().splitlines() == ["unrelated-cli"]
+    assert calls.count("add --global node@24") == 1
+    assert calls.count("add --global desktop-cli") == (0 if is_mobile else 1)
 
 
 def test_real_fnm_reuses_an_existing_runtime_without_downloading(bootstrap):
@@ -374,3 +405,55 @@ esac
     assert (b.root / "key-generations").read_text() == "generate\n"
     assert (b.root / "state/dotfiles/git-signing-key.pub").read_text() == "ssh-ed25519 AUDITPUBLICKEY\n"
     assert 'namespaces="git" ssh-ed25519 AUDITPUBLICKEY' in (b.root / "config/git/allowed_signers").read_text()
+
+
+def test_enabled_omz_plugins_are_not_ignored_on_first_install(tmp_path):
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    (source / ".chezmoiignore.tmpl").write_text((ROOT / ".chezmoiignore.tmpl").read_text())
+    (source / ".chezmoidata.json").write_text(json.dumps({"is_mobile": False}))
+    for plugin in ("git", "eza", "fzf", "zoxide"):
+        path = source / "dot_local/share/oh-my-zsh/plugins" / plugin / f"{plugin}.plugin.zsh"
+        path.parent.mkdir(parents=True)
+        path.touch()
+    result = subprocess.run(
+        [CHEZMOI, "--source", str(source), "--destination", str(target), "managed"],
+        text=True, capture_output=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    for plugin in ("git", "eza", "fzf", "zoxide"):
+        assert f".local/share/oh-my-zsh/plugins/{plugin}/{plugin}.plugin.zsh" in result.stdout
+
+
+@pytest.mark.parametrize("opt_in", [False, True])
+def test_login_shell_requires_opt_in_and_skips_an_existing_zsh(bootstrap, opt_in):
+    b = bootstrap
+    b.data["set_login_shell"] = opt_in
+    # Keep account operations and /etc/shells entirely inside the fixture.
+    zsh = b.root / "system-zsh"
+    b.executable(zsh, "exit 0\n")
+    shells = b.root / "shells"
+    shells.write_text(f"{zsh}\n")
+    b.env["PATH"] = str(b.local_bin) + ":/usr/bin:/bin"
+    (b.root / "account-shell").write_text("/bin/bash\n")
+    b.executable(b.local_bin / "getent", r'''
+printf 'account:x:1000:1000::/home/account:%s\n' "$(cat "$AUDIT_ROOT/account-shell")"
+''')
+    b.executable(b.local_bin / "chsh", r'''
+printf '%s\n' "$*" >> "$AUDIT_ROOT/chsh-calls"
+printf '%s\n' "$2" > "$AUDIT_ROOT/account-shell"
+''')
+    rendered = b.render(SCRIPTS / "run_onchange_after_45-setup-login-shell.sh.tmpl")
+    rendered = rendered.replace("/usr/bin/zsh", str(zsh)).replace("/bin/zsh", str(zsh))
+    rendered = rendered.replace("/etc/shells", str(shells))
+    for attempt in range(2):
+        result = subprocess.run(["/bin/bash"], input=rendered, env=b.env,
+                                text=True, capture_output=True, timeout=15)
+        assert result.returncode == 0, result.stderr
+    calls = b.root / "chsh-calls"
+    if opt_in:
+        assert calls.read_text().splitlines() == [f"-s {zsh}"]
+    else:
+        assert not calls.exists()
