@@ -55,6 +55,67 @@ function cze() {
   command chezmoi edit --apply -- "${files[@]}"
 }
 
+# Edit a command's script source without running it. Unmanaged scripts must be
+# in ~/bin or explicitly opted-in directories: VW_SCRIPT_DIRS=("$HOME/src/tools").
+function vw() {
+  emulate -L zsh
+  if (( $# != 1 )); then
+    print -r -- 'Usage: vw command' >&2
+    return 2
+  fi
+
+  local command_type command_path real_path encoding managed candidate script_dir
+  local -a script_dirs=("$HOME/bin" "${VW_SCRIPT_DIRS[@]}")
+  command_type=$(builtin whence -w -- "$1")
+  case "${command_type##*: }" in
+    command|hashed) ;;
+    none)
+      print -r -- "vw: Command not found: $1" >&2
+      return 127
+      ;;
+    *)
+      print -r -- "vw: $command_type; no executable script to edit" >&2
+      builtin whence -v -- "$1"
+      return 1
+      ;;
+  esac
+
+  command_path=$(builtin whence -p -- "$1") || return $?
+  real_path=${command_path:A}
+  if [[ ! -f "$real_path" || ! -r "$real_path" ]]; then
+    print -r -- "vw: Not a readable file: $real_path" >&2
+    return 1
+  fi
+  encoding=$(command file --brief --mime-encoding -- "$real_path") || return $?
+  if [[ "$encoding" == binary ]]; then
+    print -r -- "vw: Binary has no editable script source: $real_path" >&2
+    return 1
+  fi
+
+  # Compare resolved paths, but pass chezmoi its original target path. This
+  # edits script contents rather than a managed symlink's destination text.
+  managed=$(command chezmoi managed --include=files --exclude=externals \
+    --path-style=absolute --format= --nul-path-separator) || return $?
+  managed=${managed%$'\0'}
+  for candidate in "${(@0)managed}"; do
+    [[ -n "$candidate" && "${candidate:A}" == "$real_path" ]] || continue
+    command chezmoi edit --apply -- "$candidate"
+    return $?
+  done
+
+  # Ownership alone also admits package-manager launchers. Require a script
+  # directory after resolving symlinks, so shims cannot bypass this boundary.
+  if [[ -O "$real_path" && -w "$real_path" ]]; then
+    for script_dir in "${script_dirs[@]}"; do
+      [[ -n "$script_dir" && "$real_path" == "${script_dir:A}/"* ]] || continue
+      command nvim -- "$real_path"
+      return $?
+    done
+  fi
+  print -r -- "vw: Not a chezmoi-managed file or a personal script: $real_path" >&2
+  return 1
+}
+
 # Toggle Tailscale SSH even when the optional prompt segment is not loaded.
 function _ts_ssh_set() {
   emulate -L zsh
