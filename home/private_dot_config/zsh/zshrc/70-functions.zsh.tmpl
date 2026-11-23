@@ -1,5 +1,16 @@
 # 70-functions.zsh — custom functions
 
+# Toggle Tailscale SSH even when the optional prompt segment is not loaded.
+function _ts_ssh_set() {
+  emulate -L zsh
+  command sudo tailscale set --ssh="$1"
+  local result=$?
+  if (( $+functions[_ts_ssh_invalidate] )); then
+    _ts_ssh_invalidate
+  fi
+  return $result
+}
+
 # Identify install subcommands without requiring them to precede global options.
 function _dotfiles_is_capturable_install() {
   emulate -L zsh

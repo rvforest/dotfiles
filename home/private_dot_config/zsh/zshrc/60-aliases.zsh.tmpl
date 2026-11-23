@@ -22,7 +22,12 @@ fi
 if ! command -v fd >/dev/null 2>&1 && command -v fdfind >/dev/null 2>&1; then
   alias fd=fdfind
 fi
-alias v=vim
+alias v=nvim
+alias cza='chezmoi apply'
+
+# ssh
+alias ssh-on='_ts_ssh_set true'
+alias ssh-off='_ts_ssh_set false'
 
 # Git
 alias wip='git stash --include-untracked > /dev/null && gcb "wip/$(git branch --show-current)" || gco "wip/$(git branch --show-current)" && git stash pop > /dev/null && gwip'
