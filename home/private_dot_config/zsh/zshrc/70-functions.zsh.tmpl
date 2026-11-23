@@ -1,5 +1,60 @@
 # 70-functions.zsh — custom functions
 
+# Find files below $PWD; a unique initial query match opens without a picker.
+# Keep v=nvim for explicit paths and creating files.
+function vf() {
+  emulate -L zsh
+  local selection
+  local -a files select_opts
+  (( $# )) && select_opts=(--select-1)
+
+  selection=$(command rg --files --hidden --null -g '!.git' |
+    command fzf --read0 --print0 --multi --exit-0 --scheme=path \
+      --query="$*" "${select_opts[@]}")
+  local picker_status=$?
+  if (( picker_status == 1 )); then
+    print -r -- 'vf: No matching files' >&2
+    return 1
+  fi
+  (( picker_status == 0 )) || return $picker_status
+
+  # NUL delimiters preserve spaces and newlines in filenames. Remove the final
+  # delimiter before splitting so Neovim receives no empty filename argument.
+  selection=${selection%$'\0'}
+  files=("${(@0)selection}")
+  (( ${#files} )) || return 1
+  command nvim -- "${files[@]}"
+}
+
+# Find managed dotfiles from any directory, edit their sources, then apply only
+# those targets. Let chezmoi handle templates and independently changed targets.
+function cze() {
+  emulate -L zsh
+  local candidates selection
+  local -a files select_opts
+  (( $# )) && select_opts=(--select-1)
+
+  # Externals have no editable source. An empty format requests plain paths
+  # instead of configured JSON or YAML.
+  candidates=$(command chezmoi managed --include=files --exclude=externals \
+    --path-style=absolute --format= --nul-path-separator) || return $?
+  selection=$(print -rn -- "$candidates" |
+    command fzf --read0 --print0 --multi --exit-0 --scheme=path \
+      --query="$*" "${select_opts[@]}")
+  local picker_status=$?
+  if (( picker_status == 1 )); then
+    print -r -- 'cze: No matching managed files' >&2
+    return 1
+  fi
+  (( picker_status == 0 )) || return $picker_status
+
+  # Match vf's NUL-safe handling, including filenames with spaces or newlines.
+  selection=${selection%$'\0'}
+  files=("${(@0)selection}")
+  (( ${#files} )) || return 1
+  command chezmoi edit --apply -- "${files[@]}"
+}
+
 # Toggle Tailscale SSH even when the optional prompt segment is not loaded.
 function _ts_ssh_set() {
   emulate -L zsh
