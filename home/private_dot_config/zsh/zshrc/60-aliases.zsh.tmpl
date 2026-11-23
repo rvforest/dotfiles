@@ -1,5 +1,22 @@
 # 60-aliases.zsh — aliases
 
+# Global pipeline and redirection aliases. Space expands these visibly;
+# Ctrl-Space skips that preview. Quote a token to use it literally.
+alias -g ',H=| head'
+alias -g ',T=| tail'
+alias -g ',L=| less -R'
+alias -g ',LL=2>&1 | less -R'
+alias -g ',G=| rg'
+alias -g ',F=| fzf'
+alias -g ',C=| wc -l'
+alias -g ',S=| sort'
+alias -g ',U=| sort -u'
+alias -g ',NUL=>/dev/null 2>&1'
+alias -g ',NE=2>/dev/null'
+alias -g ',CA=| cat -A'
+# Keep OMZ's ga='git add' shortcut.
+alias gals='alias -g'
+
 # ls related
 alias lt='eza --tree'
 
